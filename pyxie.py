@@ -77,8 +77,8 @@ class Pyxie:
           conn = TransportTCP(ssock, dest)
           self.connections.append(conn)
           self.running = True
-          threading.Thread(target=conn.forward, args=(TransportTCP.S2D,)).start()
-          threading.Thread(target=conn.forward, args=(TransportTCP.D2S,)).start()
+          threading.Thread(target=conn.forward, args=(Transport.S2D,)).start()
+          threading.Thread(target=conn.forward, args=(Transport.D2S,)).start()
         except Exception as e:
           print "[-] %s" % e
           dest.close()
@@ -142,12 +142,12 @@ class Transport:
   S2D = 1
   D2S = -1
 
-  def __init(self):
+  def __init__(self):
     self.modifiers = []
 
 class TransportTCP(Transport):
   def __init__(self, ssock, dest):
-    super()
+    Transport.__init__(self)
     self.ssock = ssock
     self.dest = dest
     self.startTime = time.time()
@@ -158,7 +158,7 @@ class TransportTCP(Transport):
     ssock = self.ssock
     dest = self.dest
 
-    if direction == TransportTCP.D2S:
+    if direction == Transport.D2S:
       ssock = self.dest
       dest = self.ssock
 
@@ -176,7 +176,7 @@ class TransportTCP(Transport):
         self.modified = data
 
         #Log.log(data)
-        print self.rawAscii(data)
+        print Utils.rawAscii(data)
 
         # allow modifier to hook data
         for m in self.modifiers:
@@ -229,9 +229,11 @@ class Log:
     return "[+%.2fs src]: %s\n" % (time.time() - Pyxie.startTime, message)
 
 class Utils:
+  @staticmethod
   def rawAscii(data):
     return re.sub(r'\s', ' ', re.sub(r'[^ -~]', r'.', data))
-  
+
+  @staticmethod
   def pretty(data):
     h = data.encode('hex')
     a = Utils.rawAscii(data)
