@@ -42,11 +42,13 @@ class Pyxie:
     self.logfd = open(self.logfile, "a")
     self.startTime = time.time()
     threading.Thread(target=self.acceptConnections).start()
+    return self
 
   # stop the server
   def stop(self):
     self.running = False
     try:
+      self.proxy.shutdown(socket.SHUT_RDWR)
       self.proxy.close()
       self.logfd.close()
       for conn in self.connections:
@@ -240,9 +242,8 @@ class Utils:
 # TODO: finish this
 
 def main():
-  server = Pyxie()
+  server = Pyxie().start()
   #server.auto(foobalicious)
-  server.start()
 
 """
 def foobalicious(data):
