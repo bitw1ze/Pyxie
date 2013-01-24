@@ -26,20 +26,19 @@ Pyxie is a transparent TCP/UDP proxy library.
     - function hooks
 
 ### algorithm
-server loop:
-  proxy accepts connection
-  spawn two threads
-    one thread to handle client<->proxy connection
-    one thread to handle proxy<->server connection
+- proxy server loop:
+  - proxy accepts connection
+  - spawn two threads
+    - one thread to handle proxy<->client connection
+    - one thread to handle proxy<->server connection
 
-connection thread loop:
-  receive data
-    if data matches protocol signature:
-      set protocol
-      call protocol preprocessor
-      call modifier hook
-      call protocol postprocessor
-    call modifier hook
+- connection thread loop:
+  - receive data
+    - if data matches protocol signature:
+      - call protocol preprocessor
+      - call modifier hook
+      - call protocol postprocessor
+    - call modifier hook
 
-    check if any modifiers match. if they do, load protocol
-  send data
+    - check if any modifiers match. if they do, load protocol
+  - send data
