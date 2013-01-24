@@ -30,6 +30,12 @@ def stop():
   
   print '[-] stopped server'
 
+def _call_modifiers(data):
+  modified = data
+  for m in modifiers:
+    modified = m.modify(modified)
+  return modified
+
 # run the server
 def _proxy_loop():
   running = True
@@ -48,7 +54,7 @@ def _proxy_loop():
       
       try:
         dest.connect((daddr, dport))
-        conn = TransportTCP(src, dest)
+        conn = TcpSession(src, dest)
         connections.append(conn)
         running = True
         threading.Thread(target=conn.forward, args=(OUTBOUND,)).start()
@@ -88,12 +94,20 @@ class RegexModifier(Modifier):
   def modify(self, data):
     return re.sub(self.search_re, self.replace_re, data)
 
-class Transport:
+class TransportSession:
   __metaclass__ = abc.ABCMeta
 
-class TransportTCP(Transport):
+  @abc.abstractmethod
+  def forward(self, *args):
+    return
+
+  @abc.abstractmethod
+  def stop(self):
+    return
+
+class TcpSession(TransportSession):
   def __init__(self, src, dest):
-    Transport.__init__(self)
+    TransportSession.__init__(self)
     self.src = src
     self.dest = dest
 
@@ -122,7 +136,7 @@ class TransportTCP(Transport):
         Log.write(data)
         print Utils.raw_ascii(data)
 
-        modified = self.modify(data)
+        modified = _call_modifiers(data)
 
         try:
           dest.sendall(modified)
@@ -138,13 +152,6 @@ class TransportTCP(Transport):
         print "[-] %s" % e
         traceback.print_exc()
         return
-
-  def modify(self, data):
-    modified = data
-    for m in modifiers:
-      modified = m.modify(modified)
-    return modified
-
 
   def stop(self):
     self.running = False
