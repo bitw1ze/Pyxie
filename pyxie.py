@@ -17,7 +17,7 @@ def add_modifier(modifier):
 # start the server
 def start():
   Log.start('pyxie.log')
-  threading.Thread(target=__proxy_loop).start()
+  threading.Thread(target=_proxy_loop).start()
 
 # stop the server
 def stop():
@@ -31,7 +31,7 @@ def stop():
   print '[-] stopped server'
 
 # run the server
-def __proxy_loop():
+def _proxy_loop():
   running = True
   proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   proxy.bind(('', port))
