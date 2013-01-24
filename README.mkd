@@ -1,0 +1,45 @@
+#Pyxie the Magical Proxy
+
+## Description
+Pyxie is a transparent TCP/UDP proxy library. 
+
+###Pyxie is designed with the following goals in mind:
+- easy to use
+  - simple interfaces that expose as little as possible
+  - good documentation
+- extensible
+  - support for different protocols loaded as plugins
+  - protocols hook into functions for processing data
+- layered approach
+  - Transport layer: TCP/UDP base classes
+  - Crypto layer
+    - SSL/TLS, SSH crypto, support for adding non-standard/homebrewed crypto
+      plugins
+  - Application protocols
+    - HTTP, XMPP, FTP, etc
+- modify traffic
+  - preprocessing and postprocessing hooks
+  - pause and manually modify
+  - modify on the fly
+    - simple search/replace
+    - regex
+    - function hooks
+
+### algorithm
+server loop:
+  proxy accepts connection
+  spawn two threads
+    one thread to handle client<->proxy connection
+    one thread to handle proxy<->server connection
+
+connection thread loop:
+  receive data
+    if data matches protocol signature:
+      set protocol
+      call protocol preprocessor
+      call modifier hook
+      call protocol postprocessor
+    call modifier hook
+
+    check if any modifiers match. if they do, load protocol
+  send data
