@@ -33,7 +33,7 @@ class Pyxie:
   # start the server
   def start(self):
     """
-    if (self.mode == TcpTransport.NOMODE):
+    if (self.mode == Modifier.NOMODE):
       print '[*] No interception mode is set (data will not be modified).'
       print '[*] Set mode with auto(callback) or manual(needle).'
     """
@@ -47,7 +47,7 @@ class Pyxie:
   def stop(self):
     self.running = False
     try:
-      self.psock.close()
+      self.proxy.close()
       self.logfd.close()
       for conn in self.connections:
         conn.stop()
@@ -60,28 +60,28 @@ class Pyxie:
   def acceptConnections(self):
     print '[+] Starting server'
     self.running = True
-    self.psock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    self.psock.bind(('', self.port))
-    self.psock.listen(1)
+    self.proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    self.proxy.bind(('', self.port))
+    self.proxy.listen(1)
 
     while self.running == True:
       try:
         print '[*] Waiting for connections...'
-        ssock, saddr = self.psock.accept()
+        ssock, saddr = self.proxy.accept()
         daddr, dport = self.getrealdest(ssock)
-        dsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        dest = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         print "destination = %s:%s" % (daddr, dport)
         
         try:
-          dsock.connect((daddr, dport))
-          conn = TcpTransport(ssock, dsock)
+          dest.connect((daddr, dport))
+          conn = TransportTCP(ssock, dest)
           self.connections.append(conn)
           self.running = True
-          threading.Thread(target=conn.forward, args=(TcpTransport.S2D,)).start()
-          threading.Thread(target=conn.forward, args=(TcpTransport.D2S,)).start()
+          threading.Thread(target=conn.forward, args=(TransportTCP.S2D,)).start()
+          threading.Thread(target=conn.forward, args=(TransportTCP.D2S,)).start()
         except Exception as e:
           print "[-] %s" % e
-          dsock.close()
+          dest.close()
           continue
 
       except KeyboardInterrupt:
@@ -94,65 +94,96 @@ class Pyxie:
         
     self.stop()
 
-  
-class TcpTransport:
+class Modifier:
   NOMODE = 0
-  AUTO = 1
+  CUSTOM = 1
   MANUAL = 2
+  REGEX = 3
 
+  def __init__(self):
+    self.mode = Modifier.NOMODE
+
+  def modify(self, data):
+    if self.mode == Modifier.MANUAL:
+      if re.match(self.searchRegex, data):
+        print '[+] intercepted data: call unpause(modified) to continue'
+        self.pause()
+    elif self.mode == Modifier.CUSTOM:
+      self.modified = self.callback(data)
+    elif self.mode == Modifier.REGEX:
+      self.modified = re.sub(self.searchRegex, self.replaceRegex, data)
+
+  def custom(self, callback):
+    self.mode = Modifier.CUSTOM
+    self.customHook = callback
+
+  def manual(self, searchRegex):
+    self.mode = Modifier.MANUAL
+    self.searchRegex = searchRegex
+
+  def nomode(self):
+    self.mode = Modifier.NOMODE
+
+  def regex(self, searchRegex, replaceRegex):
+    self.mode = Modifier.REGEX
+    self.searchRegex = searchRegex
+    self.replaceRegex = replaceRegex
+
+  def pause(self):
+      self.paused = True
+      while self.paused:
+        pass
+
+  def unpause(self, modified=""):
+    self.modified = modified
+    self.paused = False
+
+class Transport:
   S2D = 1
   D2S = -1
 
-  def __init__(self, ssock, dsock):
-    self.ssock = ssock
-    self.dsock = dsock
-    self.startTime = time.time()
-    self.mode = TcpTransport.NOMODE
-    #self.r = self.replace
-    #self.ra = self.replaceAll
+  def __init(self):
+    self.modifiers = []
 
-  def rawAscii(self, data):
-    return re.sub(r'\s', ' ', re.sub(r'[^ -~]', r'.', data))
-  
-  def log(self, message):
-    #self.logfd.write("[+%.2fs recv]: %s\n" % (time.time() - self.startTime, data))
-    return "[+%.2fs src]: %s\n" % (time.time() - Pyxie.startTime, message)
+class TransportTCP(Transport):
+  def __init__(self, ssock, dest):
+    super()
+    self.ssock = ssock
+    self.dest = dest
+    self.startTime = time.time()
 
   def forward(self, *args):
     direction = args[0]
 
     ssock = self.ssock
-    dsock = self.dsock
+    dest = self.dest
 
-    if direction == TcpTransport.D2S:
-      ssock = self.dsock
-      dsock = self.ssock
+    if direction == TransportTCP.D2S:
+      ssock = self.dest
+      dest = self.ssock
 
     data = ' '
     while data:
       try:
-        data = ssock.recv(8192)
+        data = ssock.recv(4096)
         if not data:
           try:
             ssock.shutdown(socket.SHUT_RD)
-            dsock.shutdown(socket.SHUT_WR)
+            dest.shutdown(socket.SHUT_WR)
             self.running = False
           finally:
             return
         self.modified = data
 
-        self.log(data)
+        #Log.log(data)
         print self.rawAscii(data)
 
-        if self.mode == TcpTransport.MANUAL:
-          if data.find(self.needle) != -1:
-            print '[+] intercepted data: call unpause(modified) to continue'
-            self.pause()
-        elif self.mode == TcpTransport.AUTO:
-          self.modified = self.callback(data)
+        # allow modifier to hook data
+        for m in self.modifiers:
+          m.modify(data, direction)
 
         try:
-          dsock.sendall(self.modified)
+          dest.sendall(self.modified)
         except:
           self.running = False
                 
@@ -166,45 +197,45 @@ class TcpTransport:
         traceback.print_exc()
         return
 
-  """
-  def auto(self, callback):
-    self.mode = TcpTransport.AUTO
-    self.callback = callback
-
-  def manual(self, needle="foobar"):
-    self.mode = TcpTransport.MANUAL
-    self.needle = needle
-
-  def nomode(self):
-    self.mode = TcpTransport.NOMODE
-
-  def pause(self):
-      self.paused = True
-      while self.paused:
-        pass
-
-  def unpause(self, modified=""):
-    self.modified = modified
-    self.paused = False
-
-  def replace(self, needle, replacement):
-    self.unpause(data.replace(needle, replacement))
-
-  def replaceAll(self, replacement):
-    self.unpause(replacement)
-  """
-
   def stop(self):
     self.running = False
     try:
       self.ssock.shutdown(socket.SHUT_RDWR)
-      self.dsock.shutdown(socket.SHUT_RDWR)
+      self.dest.shutdown(socket.SHUT_RDWR)
       self.ssock.close()
-      self.dsock.close()
+      self.dest.close()
     except:
       pass
-    
     print "Stopped %s" % self
+
+class Log:
+  def __init__(self, logfile):
+    self.fd = open(logfile, 'w')
+  def __enter__(self):
+    return self
+
+  def __exit(self, type, value, traceback):
+    self.fd.close()
+
+  def start(self):
+    self.startTime = time.time()
+
+  def log(self, message):
+    try:
+      self.fd.write("[+%.2fs recv]: %s\n" % (time.time() - self.startTime, message))
+    except:
+      self.startTime = time.time()
+      pass
+    return "[+%.2fs src]: %s\n" % (time.time() - Pyxie.startTime, message)
+
+class Utils:
+  def rawAscii(data):
+    return re.sub(r'\s', ' ', re.sub(r'[^ -~]', r'.', data))
+  
+  def pretty(data):
+    h = data.encode('hex')
+    a = Utils.rawAscii(data)
+# TODO: finish this
 
 def main():
   server = Pyxie()
