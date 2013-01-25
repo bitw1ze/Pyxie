@@ -1,9 +1,7 @@
-import pyxie, sys
+import pyxie, sys, re
 
 def mod(data):
-  if data.find("foobar"):
-    pyxie.Log.write("changed foobar to barfoo!")
-  return data.replace('foobar', 'barfoo')
+  return re.sub(r'Accept-Encoding:.*\r\n', '', data)
 
 def main():
   try:
@@ -13,7 +11,6 @@ def main():
     print e
     pyxie.stop()
     sys.exit(0)
-  #server.auto(foobalicious)
 
 if __name__ == "__main__":
   sys.exit(main())
