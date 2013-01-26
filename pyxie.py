@@ -32,10 +32,10 @@ def stop():
   print '[-] stopped server'
 
 def sslify(transport):
-  socket
-  if transport.dest.getpeername()[1] == 443:
-    transport.src = ssl.wrap_socket(transport.src, server_side=True, certfile="cert.pem", keyfile="cert.pem", ssl_version=ssl.PROTOCOL_SSLv23)
+  addr = transport.dest.getpeername()
+  if addr[1] == 443:
     transport.dest = ssl.wrap_socket(transport.dest)
+    transport.src = ssl.wrap_socket(transport.src, server_side=True, certfile="cert.pem", keyfile="cert.pem", ssl_version=ssl.PROTOCOL_SSLv23)
 
 def _call_modifiers(data):
   modified = data
@@ -78,17 +78,7 @@ def _proxy_loop():
     except Exception as e:
       print "[-] %s" % e
       pass
-
-"""
-class SSLProto(ApplicationProto):
-  def __init__(self):
-    self.handshake_complete = False
-    
-  @staticmethod
-  def match(sock, data):
-    return sock.getpeername().split(':')[1] == "443"
-"""
-  
+ 
 class TransportProto:
   __metaclass__ = abc.ABCMeta
 
