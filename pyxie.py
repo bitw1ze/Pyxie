@@ -1,6 +1,7 @@
 #!/usr/bin/evn python
 
 import socket, sys, time, struct, traceback, re, threading, abc, mutex
+import ssl
 
 OUTBOUND = 1
 INBOUND = -1
@@ -30,6 +31,12 @@ def stop():
   
   print '[-] stopped server'
 
+def sslify(transport):
+  socket
+  if transport.dest.getpeername()[1] == 443:
+    transport.src = ssl.wrap_socket(transport.src, server_side=True, certfile="cert.pem", keyfile="cert.pem", ssl_version=ssl.PROTOCOL_SSLv23)
+    transport.dest = ssl.wrap_socket(transport.dest)
+
 def _call_modifiers(data):
   modified = data
   for m in modifiers:
@@ -46,7 +53,6 @@ def _proxy_loop():
 
   while running == True:
     try:
-      print '[*] Waiting for connections...'
       src, saddr = proxy.accept()
       daddr, dport = Utils.getrealdest(src)
       dest = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -54,8 +60,9 @@ def _proxy_loop():
       
       try:
         dest.connect((daddr, dport))
-        conn = TcpSession(src, dest)
+        conn = TCPProto(src, dest)
         connections.append(conn)
+        sslify(conn)
         running = True
         threading.Thread(target=conn.forward, args=(OUTBOUND,)).start()
         threading.Thread(target=conn.forward, args=(INBOUND,)).start()
@@ -72,42 +79,36 @@ def _proxy_loop():
       print "[-] %s" % e
       pass
 
-class Modifier:
-  __metaclass__ = abc.ABCMeta
-
-  @abc.abstractmethod
-  def modify(self, data):
-    return
-
-class CustomModifier(Modifier):
-  def __init__(self, callback):
-    self.callback = callback
-
-  def modify(self, data):
-    return self.callback(data)
-
-class RegexModifier(Modifier):
-  def __init(self, search_re, replace_re):
-    self.search_re = search_re
-    self.replace_re = replace_re
-
-  def modify(self, data):
-    return re.sub(self.search_re, self.replace_re, data)
-
-class TransportSession:
+"""
+class SSLProto(ApplicationProto):
+  def __init__(self):
+    self.handshake_complete = False
+    
+  @staticmethod
+  def match(sock, data):
+    return sock.getpeername().split(':')[1] == "443"
+"""
+  
+class TransportProto:
   __metaclass__ = abc.ABCMeta
 
   @abc.abstractmethod
   def forward(self, *args):
     return
 
+  def forward_outbound(self):
+    return
+
+  def forward_inbound(self):
+    return
+
   @abc.abstractmethod
   def stop(self):
     return
 
-class TcpSession(TransportSession):
+class TCPProto(TransportProto):
   def __init__(self, src, dest):
-    TransportSession.__init__(self)
+    TransportProto.__init__(self)
     self.src = src
     self.dest = dest
 
@@ -122,9 +123,9 @@ class TcpSession(TransportSession):
       dest = self.src
 
     data = ' '
-    while data:
+    while True:
       try:
-        data = src.recv(4096)
+        data = src.recv(8192)
         if not data:
           try:
             src.shutdown(socket.SHUT_RD)
@@ -133,8 +134,7 @@ class TcpSession(TransportSession):
           finally:
             return
 
-        Log.write(data)
-        print Utils.raw_ascii(data)
+        Log.write(Utils.raw_ascii(data))
 
         modified = _call_modifiers(data)
 
@@ -163,6 +163,28 @@ class TcpSession(TransportSession):
     except:
       pass
     print "Stopped %s" % self
+
+class Modifier:
+  __metaclass__ = abc.ABCMeta
+
+  @abc.abstractmethod
+  def modify(self, data):
+    return
+
+class CustomModifier(Modifier):
+  def __init__(self, callback):
+    self.callback = callback
+
+  def modify(self, data):
+    return self.callback(data)
+
+class RegexModifier(Modifier):
+  def __init(self, search_re, replace_re):
+    self.search_re = search_re
+    self.replace_re = replace_re
+
+  def modify(self, data):
+    return re.sub(self.search_re, self.replace_re, data)
 
 class Utils:
   @staticmethod
@@ -224,3 +246,5 @@ class Log:
       print e
       traceback.print_exc()
 
+class ApplicationProto(TransportProto):
+  __metaclass__ = abc.ABCMeta
