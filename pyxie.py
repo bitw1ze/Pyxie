@@ -1,7 +1,10 @@
 #!/usr/bin/evn python
 
-import socket, sys, time, struct, traceback, re, threading, abc, mutex
+import socket, sys, time, struct, traceback, re, threading, abc, subprocess
 import ssl
+from OpenSSL import SSL
+#import pkg_resources
+#print pkg_resources.get_distribution("pyOpenSSL").version
 
 OUTBOUND = 1
 INBOUND = -1
@@ -22,6 +25,7 @@ def start():
 
 # stop the server
 def stop():
+  running = False 
   try:
     proxy.shutdown(socket.SHUT_RDWR)
     proxy.close()
@@ -33,9 +37,32 @@ def stop():
 
 def sslify(transport):
   addr = transport.dest.getpeername()
-  if addr[1] == 443:
-    transport.dest = ssl.wrap_socket(transport.dest)
-    transport.src = ssl.wrap_socket(transport.src, server_side=True, certfile="cert.pem", keyfile="cert.pem", ssl_version=ssl.PROTOCOL_SSLv23)
+  if addr[1] != 443:
+    return
+
+  transport.dest = SSL.Connection(SSL.Context(SSL.TLSv1_METHOD), transport.dest)
+  #TODO: add support for virtual hosts
+  #transport.dest.set_tlsext_host_name(server_name)
+  transport.dest.set_connect_state()
+  transport.dest.do_handshake()
+  commonName = transport.dest.get_peer_certificate().get_subject().commonName
+  print commonName
+
+  subprocess.call(["sh", "./gencert.sh", commonName])
+
+  server_ctx = SSL.Context(SSL.SSLv23_METHOD)
+  server_ctx.use_privatekey_file('cert/newcerts/%s.key' % commonName)
+  server_ctx.use_certificate_file('cert/newcerts/%s.crt' % commonName)
+  transport.src = SSL.Connection(server_ctx, transport.src)
+  transport.src.set_accept_state()
+  transport.src.do_handshake()
+  #server_name = transport.src.get_servername()
+
+  #transport.dest = ssl.wrap_socket(transport.dest)
+  #transport.src = ssl.wrap_socket(transport.src, server_side=True, certfile="cert/amazon.crt", keyfile="cert/amazon.key", ssl_version=ssl.PROTOCOL_SSLv23)
+
+  #subject = transport.dest.get_peer_certificate().get_subject().commonName
+  #cert = ssl.DER_cert_to_PEM_cert(transport.dest.getpeercert(True)).decode('base64')
 
 def _call_modifiers(data):
   modified = data
@@ -63,12 +90,12 @@ def _proxy_loop():
         conn = TCPProto(src, dest)
         connections.append(conn)
         sslify(conn)
-        running = True
-        threading.Thread(target=conn.forward, args=(OUTBOUND,)).start()
         threading.Thread(target=conn.forward, args=(INBOUND,)).start()
+        threading.Thread(target=conn.forward, args=(OUTBOUND,)).start()
       except Exception as e:
-        print "[-] %s" % e
+        traceback.print_exc()
         dest.close()
+        src.close()
         continue
 
     except KeyboardInterrupt:
@@ -101,6 +128,7 @@ class TCPProto(TransportProto):
     TransportProto.__init__(self)
     self.src = src
     self.dest = dest
+    self.connections = 2
 
   def forward(self, *args):
     direction = args[0]
@@ -115,34 +143,31 @@ class TCPProto(TransportProto):
     data = ' '
     while True:
       try:
-        data = src.recv(8192)
+        data = src.recv(4096)
         if not data:
-          try:
-            src.shutdown(socket.SHUT_RD)
-            dest.shutdown(socket.SHUT_WR)
-            self.running = False
-          finally:
-            return
-
-        Log.write(Utils.raw_ascii(data))
-
-        modified = _call_modifiers(data)
-
+          raise Exception("No data received")
+      except:
         try:
-          dest.sendall(modified)
-        except:
           self.running = False
-                
-      except KeyboardInterrupt:
-        print 'keyboard interrupt'
-        self.stop()
+          src.shutdown(socket.SHUT_RD)
+          dest.shutdown(socket.SHUT_WR)
+          self.connections -= 1
+          if self.connections <= 0:
+            src.close()
+            dest.close()
+        except:
+          pass
         return
 
-      except Exception as e:
-        print "[-] %s" % e
-        traceback.print_exc()
-        return
+      modified = _call_modifiers(data)
+      Log.write(Utils.raw_ascii(modified))
 
+      try:
+        dest.sendall(modified)
+      except:
+        self.running = False
+        return
+      
   def stop(self):
     self.running = False
     try:
