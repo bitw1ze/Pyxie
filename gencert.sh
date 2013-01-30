@@ -5,8 +5,8 @@ domain=$1
 subj=$2
 
 if [ -z "$domain" ]; then
-  print "Usage: $0 <domain> [subject]"
-  exit 1
+  echo "Usage: $0 <domain> [subject]"
+  exit 0
 fi
 
 if [ -z "$subj" ]; then
@@ -34,7 +34,7 @@ if [ ! -e $base/ca.key ]; then
 fi
 
 openssl req -new -nodes -outform PEM -keyout $newcerts/$domain.key -out $newcerts/$domain.csr -days 3650 -subj "$subj"
-yes|openssl ca -md sha1 -config $config -policy policy_anything -out $newcerts/$domain.crt -infiles $newcerts/$domain.csr 
+yes|openssl ca -startdate 130101120000Z -enddate 330101000000Z -md sha1 -config $config -policy policy_anything -out $newcerts/$domain.crt -infiles $newcerts/$domain.csr 
 # shameless hack below
 outfile=$newcerts/$domain.pem
 cat $newcerts/$domain.key > $outfile
