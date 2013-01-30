@@ -21,12 +21,10 @@ if [ -e $newcerts/$domain.pem ]; then
   exit
 fi
 
-if [ ! -e $base/serial ]; then
-  echo 01 > $base/serial
-fi
-
-if [ ! -e $base/index.txt ]; then
+if [ ! -e $base/serial ] || [ ! -e $base/index.txt ]; then
+  rm -f $base/index.txt $base/serial
   touch $base/index.txt
+  echo 01 > $base/serial
 fi
 
 if [ ! -e $base/ca.key ]; then
@@ -34,10 +32,6 @@ if [ ! -e $base/ca.key ]; then
 fi
 
 openssl req -new -nodes -outform PEM -keyout $newcerts/$domain.key -out $newcerts/$domain.csr -days 3650 -subj "$subj"
-yes|openssl ca -startdate 130101120000Z -enddate 330101000000Z -md sha1 -config $config -policy policy_anything -out $newcerts/$domain.crt -infiles $newcerts/$domain.csr 
-# shameless hack below
-outfile=$newcerts/$domain.pem
-cat $newcerts/$domain.key > $outfile
-grep '^-----BEGIN CERTIFICATE-----$' -A 1000 $newcerts/$domain.crt >> $outfile
-cat $base/ca.crt  >> $outfile
+openssl ca -startdate 130101120000Z -enddate 330101000000Z -md sha1 -config $config -policy policy_anything -notext -batch -out $newcerts/$domain.crt -infiles $newcerts/$domain.csr 
+cat $newcerts/$domain.key $newcerts/$domain.crt $base/ca.crt >> $newcerts/$domain.pem
 rm $newcerts/$domain.csr $newcerts/$domain.key $newcerts/$domain.crt
