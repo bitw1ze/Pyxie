@@ -45,17 +45,31 @@ def sslify(transport):
   #transport.dest.set_tlsext_host_name(server_name)
   transport.dest.set_connect_state()
   transport.dest.do_handshake()
-  commonName = transport.dest.get_peer_certificate().get_subject().commonName
-  print commonName
+  subject = transport.dest.get_peer_certificate().get_subject()
+  commonName = subject.commonName
+  subject_str = ""
+  for pair in subject.get_components():
+    subject_str += "/%s=%s" % (pair[0], pair[1])
+  subject_str += '/'
+  print subject_str
 
-  subprocess.call(["sh", "./gencert.sh", commonName])
+  DEVNULL = None
+  try:
+    DEVNULL = subprocess.DEVNULL
+  except:
+    import os
+    DEVNULL = open(os.devnull, 'wb')
+
+  # generate the cert
+  subprocess.call(["sh", "./gencert.sh", commonName, subject_str], stdout=DEVNULL, stderr=DEVNULL)
 
   server_ctx = SSL.Context(SSL.SSLv23_METHOD)
-  server_ctx.use_privatekey_file('cert/newcerts/%s.key' % commonName)
-  server_ctx.use_certificate_file('cert/newcerts/%s.crt' % commonName)
+  server_ctx.use_certificate_file('cert/newcerts/%s.pem' % commonName)
+  server_ctx.use_privatekey_file('cert/newcerts/%s.pem' % commonName)
   transport.src = SSL.Connection(server_ctx, transport.src)
   transport.src.set_accept_state()
   transport.src.do_handshake()
+  #TODO: hack together support for virtual hosts via server_name TLS extension
   #server_name = transport.src.get_servername()
 
   #transport.dest = ssl.wrap_socket(transport.dest)
