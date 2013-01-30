@@ -4,6 +4,10 @@ config="openssl.cnf"
 domain=$1
 subj=$2
 
+if [ ! -e $newcerts ]; then
+  mkdir -p $newcerts
+fi
+
 if [ -e $newcerts/$domain.pem ]; then
   exit
 fi
