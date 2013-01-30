@@ -13,7 +13,8 @@ connections = []
 modifiers = []
 proxy = None
 port = 20755
-running = False
+
+_running = False
 
 def add_modifier(modifier):
   modifiers.append(modifier)
@@ -25,7 +26,7 @@ def start():
 
 # stop the server
 def stop():
-  running = False 
+  _running = False 
   try:
     proxy.shutdown(socket.SHUT_RDWR)
     proxy.close()
@@ -88,13 +89,13 @@ def _call_modifiers(data):
 
 # run the server
 def _proxy_loop():
-  running = True
+  _running = True
   proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   proxy.bind(('', port))
   proxy.listen(1)
   print '[+] Starting server'
 
-  while running == True:
+  while _running == True:
     try:
       src, saddr = proxy.accept()
       daddr, dport = Utils.getrealdest(src)
@@ -149,13 +150,10 @@ class TCPProto(TransportProto):
   def forward(self, *args):
     direction = args[0]
 
-    src = self.src
-    dest = self.dest
-
+    src, dest = self.src, self.dest 
     if direction == INBOUND:
-      src = self.dest
-      dest = self.src
-
+      src, dest = self.dest, self.src
+      
     data = ' '
     while True:
       try:
@@ -164,7 +162,7 @@ class TCPProto(TransportProto):
           raise Exception("No data received")
       except:
         try:
-          self.running = False
+          self.__running = False
           src.shutdown(socket.SHUT_RD)
           dest.shutdown(socket.SHUT_WR)
           self.connections -= 1
@@ -181,11 +179,11 @@ class TCPProto(TransportProto):
       try:
         dest.sendall(modified)
       except:
-        self.running = False
+        self.__running = False
         return
       
   def stop(self):
-    self.running = False
+    self.__running = False
     try:
       self.src.shutdown(socket.SHUT_RDWR)
       self.dest.shutdown(socket.SHUT_RDWR)
