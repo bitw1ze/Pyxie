@@ -61,11 +61,13 @@ def sslify(transport):
     DEVNULL = open(os.devnull, 'wb')
 
   # generate the cert
-  subprocess.call(["sh", "./gencert.sh", commonName, subject_str], stdout=DEVNULL, stderr=DEVNULL)
+  #subprocess.call(["sh", "./gencert.sh", commonName, subject_str], stdout=DEVNULL, stderr=DEVNULL)
+  subprocess.call(["sh", "./gencert.sh", commonName, subject_str])
 
   server_ctx = SSL.Context(SSL.SSLv23_METHOD)
   server_ctx.use_certificate_file('cert/newcerts/%s.pem' % commonName)
   server_ctx.use_privatekey_file('cert/newcerts/%s.pem' % commonName)
+  server_ctx.load_client_ca('cert/ca.crt')
   transport.src = SSL.Connection(server_ctx, transport.src)
   transport.src.set_accept_state()
   transport.src.do_handshake()
