@@ -4,6 +4,15 @@ config="openssl.cnf"
 domain=$1
 subj=$2
 
+if [ -z "$domain" ]; then
+  print "Usage: $0 <domain> [subject]"
+  exit 1
+fi
+
+if [ -z "$subj" ]; then
+  subj="/CN=$domain/O=$domain, Inc./"
+fi
+
 if [ ! -e $newcerts ]; then
   mkdir -p $newcerts
 fi
@@ -27,5 +36,8 @@ fi
 openssl req -new -nodes -outform PEM -keyout $newcerts/$domain.key -out $newcerts/$domain.csr -days 3650 -subj "$subj"
 yes|openssl ca -md sha1 -config $config -policy policy_anything -out $newcerts/$domain.crt -infiles $newcerts/$domain.csr 
 # shameless hack below
-cat $newcerts/$domain.crt $newcerts/$domain.key |grep -A 1000 '-----BEGIN CERTIFICATE-----' > $newcerts/$domain.pem
+outfile=$newcerts/$domain.pem
+cat $newcerts/$domain.key > $outfile
+grep '^-----BEGIN CERTIFICATE-----$' -A 1000 $newcerts/$domain.crt >> $outfile
+cat $base/ca.crt  >> $outfile
 rm $newcerts/$domain.csr $newcerts/$domain.key $newcerts/$domain.crt
