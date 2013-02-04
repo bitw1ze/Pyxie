@@ -22,7 +22,7 @@ if [ -e "$newcerts/$domain.pem" ]; then
 fi
 
 if [ ! -e $base/serial ] || [ ! -e $base/index.txt ]; then
-  rm -f $base/index.txt $base/serial
+  rm -f $base/index.txt* $base/serial*
   touch $base/index.txt
   echo 01 > $base/serial
 fi
