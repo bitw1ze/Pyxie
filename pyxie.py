@@ -22,7 +22,7 @@ def add_modifier(modifier):
 # start the server
 def start():
   Log.start('pyxie.log')
-  threading.Thread(target=_proxy_loop).start()
+  _proxy_loop()
 
 # stop the server
 def stop():
@@ -41,7 +41,7 @@ def sslify(transport):
   if addr[1] != 443:
     return
 
-  transport.dest = SSL.Connection(SSL.Context(SSL.TLSv1_METHOD), transport.dest)
+  transport.dest = SSL.Connection(SSL.Context(SSL.SSLv23_METHOD), transport.dest)
   #TODO: add support for virtual hosts
   #transport.dest.set_tlsext_host_name(server_name)
   transport.dest.set_connect_state()
@@ -67,6 +67,7 @@ def sslify(transport):
 
   certfile = 'cert/newcerts/%s.pem' % commonName
   server_ctx = SSL.Context(SSL.SSLv23_METHOD)
+  server_ctx.set_cipher_list("ALL")
   server_ctx.use_privatekey_file(certfile)
   server_ctx.use_certificate_file(certfile)
   server_ctx.use_certificate_chain_file(certfile)
