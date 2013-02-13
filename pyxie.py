@@ -12,6 +12,7 @@ INBOUND = -1
 connections = []
 modifiers = []
 proxy = None
+host = ''
 port = 20755
 
 _running = False
@@ -28,6 +29,7 @@ def start():
 def stop():
   _running = False 
   try:
+    Log.stop();
     proxy.shutdown(socket.SHUT_RDWR)
     proxy.close()
     [conn.stop() for conn in connections]
@@ -93,14 +95,14 @@ def _call_modifiers(data):
 def _proxy_loop():
   _running = True
   proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-  proxy.bind(('', port))
+  proxy.bind((host, port))
   proxy.listen(1)
   print '[+] Starting server'
 
   while _running == True:
     try:
       src, saddr = proxy.accept()
-      daddr, dport = Utils.getrealdest(src)
+      daddr, dport = TransportProto._getrealdest(src)
       dest = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
       print "destination = %s:%s" % (daddr, dport)
       
@@ -127,6 +129,15 @@ def _proxy_loop():
  
 class TransportProto:
   __metaclass__ = abc.ABCMeta
+
+  @staticmethod
+  def _getrealdest(csock):   
+    SO_ORIGINAL_DST = 80
+    odestdata = csock.getsockopt(socket.SOL_IP, SO_ORIGINAL_DST, 16)
+    _, port, a1, a2, a3, a4 = struct.unpack("!HHBBBBxxxxxxxx", odestdata)
+    address = "%d.%d.%d.%d" % (a1, a2, a3, a4)
+    
+    return address, port
 
   @abc.abstractmethod
   def forward(self, *args):
@@ -176,7 +187,8 @@ class TCPProto(TransportProto):
         return
 
       modified = _call_modifiers(data)
-      Log.write(Utils.raw_ascii(modified))
+      Log.write(Utils.printable_ascii(modified))
+      print Utils.dump_asciihex(data)
 
       try:
         dest.sendall(modified)
@@ -219,37 +231,37 @@ class RegexModifier(Modifier):
 
 class Utils:
   @staticmethod
-  def raw_ascii(data):
+  def printable_ascii(data):
     return re.sub(r'\s', ' ', re.sub(r'[^ -~]', r'.', data))
 
-# TODO: finish this
   @staticmethod
-  def pretty(data):
-    h = data.encode('hex')
-    a = Utils.raw_ascii(data)
+  def dump_ascii(payload, step=16):
+    payload = Utils.printable_ascii(payload)
+    arraydump = []
+    for i in range(0, len(payload), step):
+      line_end = i + step if i+step < len(payload) else len(payload)
+      line = payload[i:line_end]
+      arraydump.append(line)
+    return arraydump
 
-# TODO: Taken from mallory. Replace with own code or give credit in release.
   @staticmethod
-  def getrealdest(csock):   
-    """
-    This method only supports linux 2.4+. 
-    
-    Cross platform support coming soon.
-    """ 
-    try:
-        socket.SO_ORIGINAL_DST
-    except AttributeError:
-        # This is not a defined socket option
-        socket.SO_ORIGINAL_DST = 80
-        
-    # Use the Linux specific socket option to query NetFilter
-    odestdata = csock.getsockopt(socket.SOL_IP, socket.SO_ORIGINAL_DST, 16)
-    
-    # Unpack the first 6 bytes, which hold the destination data needed                                
-    _, port, a1, a2, a3, a4 = struct.unpack("!HHBBBBxxxxxxxx", odestdata)
-    address = "%d.%d.%d.%d" % (a1, a2, a3, a4)
-    
-    return address, port
+  def dump_hex(payload, step=32):
+    payload = payload.encode("hex")
+    arraydump = []
+    for i in range(0, len(payload), step):
+      line_end = i + step if i+step < len(payload) else len(payload)
+      line = ""
+      for j in range(i, line_end, 2):
+        line += (payload[j:j+2] + " ")
+      arraydump.append(line)
+
+    return arraydump
+
+  @staticmethod
+  def dump_asciihex(payload, bytes_per_line=16):
+    arraydump = zip(Utils.dump_hex(payload), Utils.dump_ascii(payload))
+    format_str = '%-' + str(bytes_per_line * 3) + 's  %s'
+    return "\n".join([format_str % (line[0], line[1]) for line in arraydump])
 
 class Log:
   start_time = None
