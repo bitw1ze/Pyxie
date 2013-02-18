@@ -3,6 +3,7 @@
 import socket, sys, time, struct, traceback, re, threading, abc, subprocess
 import ssl
 from OpenSSL import SSL
+import sqlite3
 #import pkg_resources
 #print pkg_resources.get_distribution("pyOpenSSL").version
 
@@ -22,6 +23,7 @@ def add_modifier(modifier):
 
 # start the server
 def start():
+  self.db = PyxieDB(filename="pyxie.sqlite")
   Log.start('pyxie.log')
   _proxy_loop()
 
@@ -291,3 +293,27 @@ class Log:
 
 class ApplicationProto(TransportProto):
   __metaclass__ = abc.ABCMeta
+
+class PyxieDB:
+  def __init__(filename=":memory:"):
+    con = None
+    try:
+      con = sqlite3.connect(filename)
+      cursor = con.cursor()
+      cursor.execute("""
+      create table traffic(
+        id integer primary key,
+        date text,
+        ip text,
+        port integer,
+        direction int,
+        payload blob 
+      }
+      """);
+      self.create(cursor)
+      con.commit()
+      con.close()
+          
+    except:
+      con.close()
+      raise
