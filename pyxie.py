@@ -15,6 +15,7 @@ modifiers = []
 proxy = None
 host = ''
 port = 20755
+trafficDB = None
 
 _running = False
 
@@ -23,7 +24,7 @@ def add_modifier(modifier):
 
 # start the server
 def start():
-  self.db = PyxieDB(filename="pyxie.sqlite")
+  trafficDB = PyxieDB(filename="pyxie.sqlite")
   Log.start('pyxie.log')
   _proxy_loop()
 
@@ -295,22 +296,21 @@ class ApplicationProto(TransportProto):
   __metaclass__ = abc.ABCMeta
 
 class PyxieDB:
-  def __init__(filename=":memory:"):
+  def __init__(self, filename=":memory:"):
     con = None
     try:
       con = sqlite3.connect(filename)
       cursor = con.cursor()
       cursor.execute("""
-      create table traffic(
+      create table if not exists traffic(
         id integer primary key,
         date text,
         ip text,
         port integer,
         direction int,
         payload blob 
-      }
+      )
       """);
-      self.create(cursor)
       con.commit()
       con.close()
           
