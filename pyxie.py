@@ -4,6 +4,7 @@ import socket, sys, time, struct, traceback, re, threading, abc, subprocess
 import ssl
 from OpenSSL import SSL
 import sqlite3
+from base64 import b16encode, b16decode
 #import pkg_resources
 #print pkg_resources.get_distribution("pyOpenSSL").version
 
@@ -16,6 +17,7 @@ proxy = None
 host = ''
 port = 20755
 trafficDB = None
+debug = False
 
 _running = False
 
@@ -35,29 +37,32 @@ def stop():
     Log.stop();
     proxy.shutdown(socket.SHUT_RDWR)
     proxy.close()
-    [conn.stop() for conn in connections]
+    for conn in connections:
+        conn.stop()
   except:
     pass
   
-  print '[-] stopped server'
+  print('[-] stopped server')
 
 def sslify(transport):
   addr = transport.dest.getpeername()
   if addr[1] != 443:
     return
 
-  transport.dest = SSL.Connection(SSL.Context(SSL.SSLv23_METHOD), transport.dest)
   #TODO: add support for virtual hosts
   #transport.dest.set_tlsext_host_name(server_name)
+  client_ctx = SSL.Context(SSL.TLSv1_METHOD)
+  client_ctx.set_cipher_list("ALL")
+  client_ctx.set_verify(SSL.VERIFY_NONE, lambda a,b,c,d,e: True)
+  transport.dest = SSL.Connection(client_ctx, transport.dest)
   transport.dest.set_connect_state()
   transport.dest.do_handshake()
   subject = transport.dest.get_peer_certificate().get_subject()
   commonName = subject.commonName
   subject_str = ""
   for pair in subject.get_components():
-    subject_str += "/%s=%s" % (pair[0], pair[1])
+    subject_str += "/%s=%s" % (pair[0].decode('utf8'), pair[1].decode('utf8'))
   subject_str += '/'
-  print subject_str
 
   DEVNULL = None
   try:
@@ -71,7 +76,7 @@ def sslify(transport):
   subprocess.call(["sh", "./gencert.sh", commonName, subject_str])
 
   certfile = 'cert/newcerts/%s.pem' % commonName
-  server_ctx = SSL.Context(SSL.SSLv23_METHOD)
+  server_ctx = SSL.Context(SSL.TLSv1_METHOD)
   server_ctx.set_cipher_list("ALL")
   server_ctx.use_privatekey_file(certfile)
   server_ctx.use_certificate_file(certfile)
@@ -100,14 +105,14 @@ def _proxy_loop():
   proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
   proxy.bind((host, port))
   proxy.listen(1)
-  print '[+] Starting server'
+  print('[+] Starting server')
 
   while _running == True:
     try:
       src, saddr = proxy.accept()
       daddr, dport = TransportProto._getrealdest(src)
       dest = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-      print "destination = %s:%s" % (daddr, dport)
+      Log.d("destination = %s:%s" % (daddr, dport))
       
       try:
         dest.connect((daddr, dport))
@@ -123,16 +128,14 @@ def _proxy_loop():
         continue
 
     except KeyboardInterrupt:
-      print 'got a keyboard interrupt!'
+      print('got a keyboard interrupt!')
       stop()
       sys.exit(0)
     except Exception as e:
-      print "[-] %s" % e
+      print("[-] %s" % e)
       pass
  
-class TransportProto:
-  __metaclass__ = abc.ABCMeta
-
+class TransportProto(metaclass=abc.ABCMeta):
   @staticmethod
   def _getrealdest(csock):   
     SO_ORIGINAL_DST = 80
@@ -191,7 +194,7 @@ class TCPProto(TransportProto):
 
       modified = _call_modifiers(data)
       Log.write(Utils.printable_ascii(modified))
-      print Utils.dump_asciihex(data)
+      Log.d(Utils.dump_asciihex(data))
 
       try:
         dest.sendall(modified)
@@ -208,11 +211,9 @@ class TCPProto(TransportProto):
       self.dest.close()
     except:
       pass
-    print "Stopped %s" % self
+    print("Stopped %s" % self)
 
-class Modifier:
-  __metaclass__ = abc.ABCMeta
-
+class Modifier(metaclass=abc.ABCMeta):
   @abc.abstractmethod
   def modify(self, data):
     return
@@ -235,7 +236,7 @@ class RegexModifier(Modifier):
 class Utils:
   @staticmethod
   def printable_ascii(data):
-    return re.sub(r'\s', ' ', re.sub(r'[^ -~]', r'.', data))
+    return re.sub(r'\s', ' ', re.sub(r'[^ -~]', r'.', data.decode('utf8', 'ignore')))
 
   @staticmethod
   def dump_ascii(payload, step=16):
@@ -249,7 +250,7 @@ class Utils:
 
   @staticmethod
   def dump_hex(payload, step=32):
-    payload = payload.encode("hex")
+    payload = b16encode(bytes(payload)).decode('utf8')
     arraydump = []
     for i in range(0, len(payload), step):
       line_end = i + step if i+step < len(payload) else len(payload)
@@ -262,7 +263,7 @@ class Utils:
 
   @staticmethod
   def dump_asciihex(payload, bytes_per_line=16):
-    arraydump = zip(Utils.dump_hex(payload), Utils.dump_ascii(payload))
+    arraydump = list(zip(Utils.dump_hex(payload), Utils.dump_ascii(payload)))
     format_str = '%-' + str(bytes_per_line * 3) + 's  %s'
     return "\n".join([format_str % (line[0], line[1]) for line in arraydump])
 
@@ -276,7 +277,7 @@ class Log:
       Log.fd = open(filename, "w")
       Log.start_time = time.time()
     except Exception as e:
-      print e
+      print(e)
       traceback.print_exc()
 
   @staticmethod
@@ -289,11 +290,16 @@ class Log:
     try:
       Log.fd.write("[+%.2fs recv]: %s\n" % (time.time() - Log.start_time, message))
     except Exception as e:
-      print e
+      print(e)
       traceback.print_exc()
 
-class ApplicationProto(TransportProto):
-  __metaclass__ = abc.ABCMeta
+  @staticmethod
+  def d(message):
+    if debug:
+      print(message)
+
+class ApplicationProto(TransportProto, metaclass=abc.ABCMeta):
+  pass
 
 class PyxieDB:
   def __init__(self, filename=":memory:"):
