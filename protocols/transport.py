@@ -5,10 +5,11 @@ from threading import Thread
 class TransportProto(metaclass=abc.ABCMeta):
 
 
-    def __init__(self, inbound, outbound):
+    def __init__(self, inbound, outbound, modifiers):
 
         self.inbound = inbound
         self.outbound = outbound
+        self.modifiers = modifiers
 
     @abc.abstractmethod   
     def forward(self, *args):
@@ -33,3 +34,10 @@ class TransportProto(metaclass=abc.ABCMeta):
     @abc.abstractmethod
     def stop(self):
         return
+
+
+    def call_modifiers(self, data):
+        modified = data
+        for m in self.modifiers:
+            modified = m.modify(modified)
+        return modified

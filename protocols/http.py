@@ -1,18 +1,19 @@
 from protocols.tcp import TCPProto
+import logging
+
+log = logging.getLogger("pyxie")
 
 class HTTPProto(TCPProto):
     
 
-    def __init__(self, inbound, outbound):
-
-        TCPProto.__init__(self, inbound, outbound)
+    def __init__(self, inbound, outbound, modifiers):
+        TCPProto.__init__(self, inbound, outbound, modifiers)
+        log.debug(self.modifiers)
 
     def forward_inbound(self):
+
         TCPProto.forward_inbound(self)
 
-        pass
-
     def forward_outbound(self):
-        TCPProto.forward_outbound(self)
 
-        pass
+        TCPProto.forward_outbound(self)

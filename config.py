@@ -7,3 +7,5 @@ from protocols.http import HTTPProto
 protocol = HTTPProto
 
 realdest = ('www.facebook.com', 443)
+
+modifiers = []

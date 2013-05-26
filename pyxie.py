@@ -12,7 +12,6 @@ from modifier import Modifier
 _running = False
 log = None
 streams = []
-modifiers = []
 proxy = None
 
 def init_logger(filename=None, level=logging.WARNING):
@@ -34,9 +33,6 @@ def init_logger(filename=None, level=logging.WARNING):
     log.setLevel(level)
     return log
 
-def add_modifier(modifier):
-  modifiers.append(modifier)
-
 # start the server
 def start():
     global log
@@ -57,12 +53,6 @@ def stop():
     
     log.info('stopped server')
 
-def _call_modifiers(data):
-    modified = data
-    for m in modifiers:
-        modified = m.modify(modified)
-    return modified
-
 # run the server
 def _proxy_loop():
     _running = True
@@ -79,7 +69,7 @@ def _proxy_loop():
             # TODO: outbound.connect(getrealdest(inbound))
 
             # TODO: add UDP support
-            stream = config.protocol(inbound, outbound)
+            stream = config.protocol(inbound, outbound, config.modifiers)
             log.debug("Initialized %s protocol" % type(stream))
 
             if config.wrapper:

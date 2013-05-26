@@ -8,9 +8,9 @@ log = logging.getLogger("pyxie")
 class TCPProto(TransportProto):
 
 
-    def __init__(self, inbound, outbound):
+    def __init__(self, inbound, outbound, modifiers):
 
-        TransportProto.__init__(self, inbound, outbound)
+        TransportProto.__init__(self, inbound, outbound, modifiers)
 
     def forward_outbound(self):
 
@@ -40,11 +40,7 @@ class TCPProto(TransportProto):
                     pass
                 return
 
-            #modified = _call_modifiers(data)
-            # TODO: send to logger
-            #print(Utils.printable_ascii(modified))
-            #print(Utils.dump_asciihex(data))
-            modified = data
+            modified = self.call_modifiers(data)
 
             try:
                 outbound.sendall(modified)
@@ -62,3 +58,4 @@ class TCPProto(TransportProto):
         except:
             pass
         print("Stopped %s" % self)
+
