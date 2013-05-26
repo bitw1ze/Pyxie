@@ -69,7 +69,7 @@ def _proxy_loop():
     proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     proxy.bind(config.bindaddress)
     proxy.listen(1)
-    log.info('Pyxie started')
+    log.debug('Pyxie started')
 
     while _running == True:
         try:
@@ -93,16 +93,15 @@ def _proxy_loop():
             #log.info("source = %s:%s" % stream.inbound.getpeername())
 
         except Exception as e:
-            outbound.close()
-            inbound.close()
+            try:
+                outbound.close()
+                inbound.close()
+            except:
+                pass
+
             raise
 
         except KeyboardInterrupt:
             log.exception('got a keyboard interrupt!')
             stop()
             sys.exit(0)
-
-        except Exception as e:
-            traceback.print_exc()
-            log.exception("[-] %s" % e)
-            pass
