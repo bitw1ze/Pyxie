@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 
-import pyxie, sys, re
+import sys
+import re
+
+import pyxie
+import modifier
 
 def mod1(data):
   return re.sub(r'Accept-Encoding:.*\r\n', '', data.decode('utf8', 'ignore')).encode('utf8')
@@ -20,8 +24,8 @@ def mod4(data):
 
 def main():
   try:
+    pyxie.add_modifier(modifier.CustomModifier(mod1))
     """
-    pyxie.add_modifier(pyxie.CustomModifier(mod1))
     pyxie.add_modifier(pyxie.CustomModifier(mod2))
     pyxie.add_modifier(pyxie.CustomModifier(mod3))
     pyxie.add_modifier(pyxie.CustomModifier(mod4))
