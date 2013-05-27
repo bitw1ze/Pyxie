@@ -4,9 +4,13 @@ import re
 
 class Modifier(metaclass=abc.ABCMeta):
 
+    def __init__(self, direction):
+
+        self.direction = direction
 
     @abc.abstractmethod
     def modify(self, data):
+
         return
 
 class CustomModifier(Modifier):

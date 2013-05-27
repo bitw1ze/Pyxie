@@ -6,9 +6,10 @@ log = logging.getLogger("pyxie")
 class HTTPProto(TCPProto):
     
 
-    def __init__(self, inbound, outbound, modifiers):
-        TCPProto.__init__(self, inbound, outbound, modifiers)
-        log.debug(self.modifiers)
+    proto_name = 'http'
+
+    def __init__(self, inbound, outbound, modifiers, db):
+        TCPProto.__init__(self, inbound, outbound, modifiers, db)
 
     def forward_inbound(self):
 

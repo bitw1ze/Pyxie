@@ -8,11 +8,14 @@ import logging
 import config
 from utils import getrealdest
 from modifier import Modifier
+from trafficdb import TrafficDB
+
+log = None
+trafficdb = None
+proxy = None
+streams = []
 
 _running = False
-log = None
-streams = []
-proxy = None
 
 def init_logger(filename=None, level=logging.WARNING):
 
@@ -35,9 +38,9 @@ def init_logger(filename=None, level=logging.WARNING):
 
 # start the server
 def start():
-    global log
-    #trafficDB = PyxieDB(filename="pyxie.sqlite")
-    log = init_logger(filename="/tmp/pyxie.log", level=logging.DEBUG)
+    global log, trafficdb
+    trafficdb = TrafficDB(filename=config.dbfile)
+    log = init_logger(filename=config.logfile, level=logging.DEBUG)
     _proxy_loop()
 
 # stop the server
@@ -51,34 +54,34 @@ def stop():
     except:
         pass
     
-    log.info('stopped server')
+    log.debug('stopped server')
 
 # run the server
 def _proxy_loop():
     _running = True
     proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     proxy.bind(config.bindaddress)
-    proxy.listen(1)
+    proxy.listen(100)
     log.debug('Pyxie started')
 
     while _running == True:
         try:
             inbound, _ = proxy.accept()
             outbound = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            outbound.connect(config.realdest)
-            # TODO: outbound.connect(getrealdest(inbound))
+            outbound.connect(getrealdest(inbound))
 
             # TODO: add UDP support
-            stream = config.protocol(inbound, outbound, config.modifiers)
+            stream = config.protocol(inbound, outbound, 
+                                     config.modifiers, trafficdb)
             log.debug("Initialized %s protocol" % type(stream))
 
             if config.wrapper:
                 config.wrapper.wrap(stream)
                 log.debug("Wrapped proto with %s" % config.wrapper)
 
+            streams.append(stream)
             stream.start()
 
-            streams.append(stream)
             log.info("destination = %s:%s" % stream.outbound.getpeername())
             #log.info("source = %s:%s" % stream.inbound.getpeername())
 

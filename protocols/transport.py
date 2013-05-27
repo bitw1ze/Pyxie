@@ -5,16 +5,15 @@ from threading import Thread
 class TransportProto(metaclass=abc.ABCMeta):
 
 
-    def __init__(self, inbound, outbound, modifiers):
+    streamid = None
+
+    def __init__(self, inbound, outbound, modifiers, db):
 
         self.inbound = inbound
         self.outbound = outbound
         self.modifiers = modifiers
-
-    @abc.abstractmethod   
-    def forward(self, *args):
-
-        return
+        self.trafficdb = db
+        self.streamid = db.add_stream(self)
 
     @abc.abstractmethod   
     def forward_outbound(self):
