@@ -1,44 +1,103 @@
-#Pyxie the Magical Proxy
+# Pyxie - An Extensible Transparent Proxy
 
-## Description
-Pyxie is a transparent TCP/UDP proxy library. 
+## Summary
 
-###Pyxie is designed with the following goals in mind:
-* easy to use
-    * simple interfaces that expose as little as possible
-    * good documentation
-* extensible
-    * support for different protocols loaded as plugins
-    * protocols hook into functions for processing data
-* layered approach
-    * Transport layer: TCP/UDP base classes
-    * Crypto layer
-        * SSL/TLS, SSH crypto, support for adding non-standard/homebrewed crypto
-            plugins
-    * Application protocols
-        * HTTP, XMPP, FTP, etc
-* modify traffic
-    * preprocessing and postprocessing hooks
-    * pause and manually modify
-    * modify on the fly
-        * simple search/replace
-        * regex
-        * function hooks
+Pyxie is an extensible transparent proxy framework intended for use in
+security testing and reverse engineering of proprietary protocols and
+applications. Pyxie allows you to easily observe and modify traffic. Users
+can extend Pyxie for their needs by creating plugins that recognize the
+protocol they are testing and perform protocol-specific operations. 
 
-### algorithm
-* proxy server loop:
-    * proxy accepts connection
-    * spawn two threads
-        * one thread to handle proxy<->client connection
-        * one thread to handle proxy<->server connection
+## Details
 
-* connection thread loop:
-    * receive data
-        * if data matches protocol signature:
-            * call protocol preprocessor
-            * call modifier hook
-            * call protocol postprocessor
-        * call modifier hook
+Pyxie introduces a number of terms and concepts that users should be
+familiar with below.
 
-        * check if any modifiers match. if they do, load protocol
-    * send data
+### Client/Server
+
+In Pyxie, "client" refers to the application's traffic that we are
+intercepting. For example, and Android app using a proprietary protocol. The
+"server" is who the client is talking to.
+
+### Inbound/Outbound
+
+Traffic can flow in two directions - inbound or outbound. Inbound is defined
+as traffic flowing from the "client" to "server". Likewise, "outbound" is
+traffic flowing from "server" to "client".
+
+### Modifiers
+
+Modifiers are objects that offer a way for users to modify traffic in
+transit. Modifiers can be thought of as hooks which observe traffic and
+perform a modification with a certain condition is met. Modifiers can be
+very simple, such as replacing the string literal "hello" with "goodbye", or
+complex, allowing programmers to run arbitrary python code on intercepted
+traffic before it is sent to its intended destination. 
+
+Modifiers can be defined in the config file or built-in to a protocol. There
+are a few different kinds of modifiers.
+
+#### RegexModifier
+
+TODO
+
+#### CustomModifier
+
+TODO
+
+### Protocol Plugins
+
+Pyxie allows programmers to add support for recognizing and handling new
+protocols. Just extend one of the existing protocol classes such as TCPProto
+(tcp.py) and place it in the protocols directory. Override the
+forward\_inbound and forward\_outbound methods to handle forwarding for your
+specific protocol.
+
+### Wrappers
+
+Wrappers are protocols which wrap around the protocol you're testing, yet
+are not the focus of being tested. SSL/TLS is implemented as a wrapper
+because it wraps many protocols (However, you could implement it as a
+protocol too if you actually testing SSL/TLS). A wrapper take a Protocol
+object and replace its inbound and outbound sockets with wrapped versions of
+those sockets so that they are completely transparent to the tester. Other
+wrapper objects may potentially include compression/decompression or other
+cryptographic protocols.
+
+## Setup
+
+### Intercepting Traffic
+
+Pyxie does not provide a means for setting up traffic interception. Users'
+needs vary greatly depending on what they are testing. Here are some
+suggestions.
+
+#### Modify the Hosts File
+
+This is by far the easiest way to intercept traffic if the device the
+application resides on has a host file you can modify. You can do this if
+you're testing an app on a rooted phone or a desktop application.
+
+#### Fake DNS Server
+
+You can also set up a rogue DNS server to intercept traffic. This is also
+relatively simple if you can configure the test device's DNS settings.
+
+#### ARP Spoofing
+
+This can be unstable if you're not careful but it works. Use dsniff,
+ettercap, cain and abel, or another tool.
+
+#### PPTP VPN Server
+
+This is the simplest kind of VPN server to set up and works pretty well.
+Make Pyxie listen on the PPTP interface.
+
+#### Fake WiFi Access Point
+
+TODO
+
+### Configuration
+
+Pyxie can be configuration by its config file (config.py) or command-line
+arguments, which will override options in the config file.
