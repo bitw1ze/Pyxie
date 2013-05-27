@@ -32,28 +32,33 @@ class SSLWrapper:
     @staticmethod
     def _wrap_inbound(sock, subject):
 
-        commonName = subject.commonName
-        subject_str = ""
-        for pair in subject.get_components():
-            subject_str += "/%s=%s" % (pair[0].decode('utf8'), 
-                                       pair[1].decode('utf8'))
-        subject_str += '/'
-        log.debug(subject_str)
+        try:
+            commonName = subject.commonName
+            subject_str = ""
+            for pair in subject.get_components():
+                subject_str += "/%s=%s" % (pair[0].decode('utf8'), 
+                                           pair[1].decode('utf8'))
+            subject_str += '/'
+            log.debug(subject_str)
 
-        # generate the cert
-        subprocess.call(["sh", "./gencert.sh", commonName, subject_str])
+            # generate the cert
+            subprocess.call(["sh", "./gencert.sh", commonName, subject_str])
 
-        certfile = 'cert/newcerts/%s.pem' % commonName
-        ctx = SSL.Context(SSL.SSLv3_METHOD)
-        ctx.set_cipher_list("ALL")
-        ctx.use_privatekey_file(certfile)
-        ctx.use_certificate_file(certfile)
-        ctx.use_certificate_chain_file(certfile)
-        sock = SSL.Connection(ctx, sock)
-        sock.set_accept_state()
-        sock.do_handshake()
+            certfile = 'cert/newcerts/%s.pem' % commonName
+            ctx = SSL.Context(SSL.SSLv3_METHOD)
+            ctx.set_cipher_list("ALL")
+            ctx.use_privatekey_file(certfile)
+            ctx.use_certificate_file(certfile)
+            ctx.use_certificate_chain_file(certfile)
+            sock = SSL.Connection(ctx, sock)
+            sock.set_accept_state()
+            sock.do_handshake()
 
-        return sock
+            return sock
+
+        except Exception as e:
+            print(e)
+            pass
         
 
 
