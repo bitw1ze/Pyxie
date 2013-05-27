@@ -1,3 +1,4 @@
+# bindaddress: tuple containing address of interface and port to bind proxy 
 bindaddress = ('', 443)
 
 from wrappers import SSLWrapper
@@ -9,3 +10,6 @@ protocol = HTTPProto
 realdest = ('www.facebook.com', 443)
 
 modifiers = []
+
+logfile = '/tmp/pyxie.log'
+dbfile = '/tmp/pyxie.db'

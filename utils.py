@@ -1,5 +1,6 @@
 import socket
 import re
+import config
 
 def getrealdest(csock):   
     """
@@ -10,7 +11,7 @@ def getrealdest(csock):
     
     return (address, port)
     """
-    return ('defcon.org', 443)
+    return config.realdest
 
 def printable_ascii(data):
     return re.sub(r'\s', ' ', 
