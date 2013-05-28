@@ -1,9 +1,8 @@
-#!/usr/bin/evn python
-
 import socket
 import sys
 import traceback
 import logging
+from time import time
 
 import config
 from utils import getrealdest
@@ -14,6 +13,7 @@ log = None
 trafficdb = None
 proxy = None
 streams = []
+timestamp = str(int(time()))
 
 _running = False
 
@@ -38,9 +38,14 @@ def init_logger(filename=None, level=logging.WARNING):
 
 # start the server
 def start():
+
     global log, trafficdb
-    trafficdb = TrafficDB(filename=config.dbfile)
-    log = init_logger(filename=config.logfile, level=logging.DEBUG)
+
+    logfile, dbfile= map(lambda x: x.replace("^:TS:^", timestamp),
+                        (config.logfile, config.dbfile))
+
+    log = init_logger(filename=logfile, level=logging.DEBUG)
+    trafficdb = TrafficDB(filename=dbfile)
     _proxy_loop()
 
 # stop the server

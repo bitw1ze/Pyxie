@@ -11,5 +11,5 @@ realdest = ('www.facebook.com', 443)
 
 modifiers = []
 
-logfile = '/tmp/pyxie.log'
-dbfile = '/tmp/pyxie.db'
+logfile = '/tmp/pyxie.:TIMESTAMP:.log'
+dbfile = '/tmp/pyxie.:TIMESTAMP:.db'
