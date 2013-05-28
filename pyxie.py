@@ -63,6 +63,7 @@ def stop():
 
 # run the server
 def _proxy_loop():
+
     _running = True
     proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     proxy.bind(config.bindaddress)
@@ -71,35 +72,31 @@ def _proxy_loop():
 
     while _running == True:
         try:
-            inbound, _ = proxy.accept()
-            outbound = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            outbound.connect(getrealdest(inbound))
+            client, _ = proxy.accept()
+            server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            server.connect(getrealdest(client))
 
             # TODO: add UDP support
-            stream = config.protocol(inbound, outbound, 
-                                     config.modifiers, trafficdb)
+            stream = config.protocol(client, server, config.modifiers,
+                                    trafficdb, config.wrapper)
             log.debug("Initialized %s protocol" % type(stream))
-
-            if config.wrapper:
-                config.wrapper.wrap(stream)
-                log.debug("Wrapped proto with %s" % config.wrapper)
 
             streams.append(stream)
             stream.start()
 
-            log.info("destination = %s:%s" % stream.outbound.getpeername())
-            #log.info("source = %s:%s" % stream.inbound.getpeername())
+            log.info("destination = %s:%s" % stream.server.getpeername())
+            log.info("source = %s:%s" % stream.client.getpeername())
 
         except Exception as e:
             try:
-                outbound.close()
-                inbound.close()
+                server.close()
+                client.close()
             except:
                 pass
 
             raise
 
         except KeyboardInterrupt:
-            log.exception('got a keyboard interrupt!')
+            log.exception('Execution interrupted by user (ctrl+c)')
             stop()
             sys.exit(0)

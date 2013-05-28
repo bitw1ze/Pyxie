@@ -1,15 +1,13 @@
 from protocols.tcp import TCPProto
-import logging
 
-log = logging.getLogger("pyxie")
 
 class HTTPProto(TCPProto):
     
 
     proto_name = 'http'
 
-    def __init__(self, inbound, outbound, modifiers, db):
-        TCPProto.__init__(self, inbound, outbound, modifiers, db)
+    def __init__(self, client, server, modifiers, db, wrapper):
+        TCPProto.__init__(self, client, server, modifiers, db, wrapper)
 
     def forward_inbound(self):
 
@@ -18,3 +16,20 @@ class HTTPProto(TCPProto):
     def forward_outbound(self):
 
         TCPProto.forward_outbound(self)
+
+class HTTPRequest:
+
+    verb = {
+            "method" : "", 
+            "path" : "", 
+            "params" : [],
+            "version" : ""
+            }
+    headers = []
+    body = []
+
+class HTTPResponse:
+
+    status = ""
+    headers = []
+    body = []

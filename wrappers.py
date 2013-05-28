@@ -1,36 +1,53 @@
 import subprocess
 import logging
+import socket
+
 from OpenSSL import SSL
 
 log = logging.getLogger("pyxie")
 
+
 class SSLWrapper:
+
 
     @staticmethod
     def wrap(stream):
-        stream.outbound = SSLWrapper._wrap_outbound(stream.outbound)
-        subject = stream.outbound.get_peer_certificate().get_subject()
-        stream.inbound = SSLWrapper._wrap_inbound(stream.inbound, subject)
+        stream.server = SSLWrapper._wrap_server(stream.server)
+        subject = stream.server.get_peer_certificate().get_subject()
+        stream.client = SSLWrapper._wrap_client(stream.client, subject)
 
-        return stream.inbound, stream.outbound
+        return stream.client, stream.server
 
     @staticmethod
-    def _wrap_outbound(sock):
+    def unwrap(stream):
 
-        # TODO: add support for virtual hosts via SNI extension
-        # stream.outbound.set_tlsext_host_name(server_name)
-        ctx = SSL.Context(SSL.SSLv3_METHOD)
-        ctx.set_cipher_list("ALL")
-        ctx.set_verify(SSL.VERIFY_NONE, lambda a,b,c,d,e: True)
-        sock = SSL.Connection(ctx, sock)
-        sock.set_connect_state()
-        sock.do_handshake()
+        stream.server.shutdown()
+        stream.server.sock_shutdown(socket.RDWR)
+        stream.cient.shutdown()
+        stream.client.sock_shutdown(socket.RDWR)
 
+    @staticmethod
+    def _wrap_server(sock):
+
+        try:
+            # TODO: add support for virtual hosts via SNI extension
+            # stream.server.set_tlsext_host_name(server_name)
+            ctx = SSL.Context(SSL.SSLv3_METHOD)
+            ctx.set_cipher_list("ALL")
+            ctx.set_verify(SSL.VERIFY_NONE, lambda a,b,c,d,e: True)
+            sock = SSL.Connection(ctx, sock)
+            sock.set_connect_state()
+            sock.do_handshake()
         
+        except SSL.SysCallError as e:
+            pass
+        except SSL.ZeroReturnError as e:
+            pass
+
         return sock
 
     @staticmethod
-    def _wrap_inbound(sock, subject):
+    def _wrap_client(sock, subject):
 
         try:
             commonName = subject.commonName
@@ -56,10 +73,10 @@ class SSLWrapper:
 
             return sock
 
-        except Exception as e:
-            print(e)
+        except SSL.SysCallError as e:
             pass
-        
+        except SSL.ZeroReturnError as e:
+            pass
 
 
 
@@ -114,9 +131,9 @@ class SSLWrapper:
 #TODO: hack together support for virtual hosts via server_name TLS extension
         server_name = sock.get_servername()
 
-        stream.outbound = ssl.wrap_socket(stream.outbound)
+        stream.server = ssl.wrap_socket(stream.server)
         sock = ssl.wrap_socket(sock, server_side=True, certfile="cert/amazon.crt", keyfile="cert/amazon.key", ssl_version=ssl.PROTOCOL_SSLv23)
 
-        subject = stream.outbound.get_peer_certificate().get_subject().commonName
-        cert = ssl.DER_cert_to_PEM_cert(stream.outbound.getpeercert(True)).decode('base64')
+        subject = stream.server.get_peer_certificate().get_subject().commonName
+        cert = ssl.DER_cert_to_PEM_cert(stream.server.getpeercert(True)).decode('base64')
 '''

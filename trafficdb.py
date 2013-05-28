@@ -1,8 +1,11 @@
 import sqlite3
 import logging
 from time import time
+from threading import Lock
 
 log = logging.getLogger("pyxie")
+mutex = Lock()
+
 
 class TrafficDB:
 
@@ -45,41 +48,43 @@ class TrafficDB:
         """)
             
         con.commit()
-
+        con.close()
         
     def add_stream(self, stream):
 
+        mutex.acquire()
         con = sqlite3.connect(self.filename)
         cursor = con.cursor()
-        stmt = """
-        INSERT INTO streams(srcip, srcport, dstip, dstport, proto)
-        VALUES (?, ?, ?, ?, ?)
-        """
-        srcip, srcport = stream.inbound.getpeername()
-        dstip, dstport = stream.outbound.getpeername()
+
+        stmt = """INSERT INTO streams(srcip, srcport, dstip, dstport, proto)
+                  VALUES (?, ?, ?, ?, ?)"""
+        srcip, srcport = stream.client.getpeername()
+        dstip, dstport = stream.server.getpeername()
         proto = stream.proto_name
+
         cursor.execute(stmt, (srcip, srcport, dstip, dstport, proto))
+        streamid = cursor.lastrowid
+
         con.commit()
+        con.close()
+        mutex.release()
 
-        # TODO: resolve potential race condition?
-
-        return cursor.lastrowid
+        return streamid
 
     def add_traffic(self, stream, sid, direc, ismodified, data):
 
+        mutex.acquire()
         con = sqlite3.connect(self.filename)
         cursor = con.cursor()
-        stmt = """
-        INSERT INTO traffic
-        (
-            streamid, timestamp, direction, modified, payload
-        )
-        VALUES (?, ?, ?, ?, ?)
-        """
+
+        stmt = """INSERT INTO traffic (streamid, timestamp, direction, modified, payload)
+                  VALUES (?, ?, ?, ?, ?)"""
 
         cursor.execute(stmt, (sid, time(), direc, ismodified, data))
+        trafficid = cursor.lastrowid
+
         con.commit()
+        con.close()
+        mutex.release()
 
-        # TODO: resolve potential race condition?
-
-        return cursor.lastrowid
+        return trafficid

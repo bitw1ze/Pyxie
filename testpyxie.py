@@ -7,6 +7,7 @@ import pyxie
 import modifier
 import config
 
+
 def mod1(data):
 
   return re.sub(r'Accept-Encoding:.*\r\n', '', data.decode('utf8', 'ignore')).encode('utf8')
