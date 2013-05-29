@@ -1,90 +1,98 @@
-import sqlite3
+import config
 import logging
 from time import time
-from threading import Lock
+
+import psycopg2
+
+import config
 
 log = logging.getLogger("pyxie")
-mutex = Lock()
-
 
 class TrafficDB:
 
 
-    filename = None
+    def __init__(self):
 
-    def __init__(self, filename=":memory:"):
+        try:
+            self.create_tables()
 
-        self.filename = filename
-        self.create_tables()
+        except psycopg2.ProgrammingError:
+            pass
+
+    def drop_tables(self):
+
+        try:
+            con = psycopg2.connect(config.dsn)
+            cursor = con.cursor()
+            cursor.execute("""
+            DROP TABLE traffic;
+            DROP TABLE streams;
+            """)
+
+        except psycopg2.ProgrammingError:
+            pass
 
     def create_tables(self):
 
-        con = sqlite3.connect(self.filename)
-        cursor = con.cursor()
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS streams
-        (
-            id INTEGER PRIMARY KEY,
-            srcip INTEGER,
-            srcport TEXT,
-            dstip INTEGER,
-            dstport TEXT,
-            proto TEXT
-        )
-        """)
-        con.commit()
-
-        cursor.execute("""
-        CREATE TABLE IF NOT EXISTS traffic
-        (
-            id INTEGER PRIMARY KEY,
-            streamid INTEGER,
-            timestamp TEXT,
-            direction INTEGER,
-            modified INTEGER,
-            payload BLOB,
-            FOREIGN KEY(streamid) REFERENCES streams(streamid)
-        )
-        """)
-            
-        con.commit()
-        con.close()
+        try:
+            con = psycopg2.connect(config.dsn)
+            cursor = con.cursor()
+            cursor.execute("""
+            CREATE TABLE streams
+            (
+                id          SERIAL PRIMARY KEY,
+                srcip       VARCHAR(16),
+                srcport     INT,
+                dstip       VARCHAR(16),
+                dstport     INT,
+                proto       VARCHAR(20)
+            );
+            CREATE TABLE IF NOT EXISTS traffic
+            (
+                id          SERIAL      PRIMARY KEY,
+                streamid    INT         REFERENCES streams(id),
+                timestamp   TEXT,
+                direction   BOOLEAN,
+                modified    BOOLEAN,
+                payload     BYTEA
+            )
+            """)
+        
+        except psycopg2.ProgrammingError:
+            raise
+                
+        finally:
+            con.commit()
+            con.close()
         
     def add_stream(self, stream):
 
-        mutex.acquire()
-        con = sqlite3.connect(self.filename)
+        con = psycopg2.connect(config.dsn)
         cursor = con.cursor()
 
-        stmt = """INSERT INTO streams(srcip, srcport, dstip, dstport, proto)
-                  VALUES (?, ?, ?, ?, ?)"""
+        stmt = """INSERT INTO streams (srcip, srcport, dstip, dstport, proto) VALUES (%s, %s, %s, %s, %s)"""
         srcip, srcport = stream.client.getpeername()
         dstip, dstport = stream.server.getpeername()
         proto = stream.proto_name
 
         cursor.execute(stmt, (srcip, srcport, dstip, dstport, proto))
-        streamid = cursor.lastrowid
-
         con.commit()
+        
+        cursor.execute('SELECT LASTVAL()')
+        streamid = cursor.fetchone()[0]
+        log.debug("stream id: " + str(streamid))
         con.close()
-        mutex.release()
 
         return streamid
 
-    def add_traffic(self, stream, sid, direc, ismodified, data):
+    def add_traffic(self, stream, direc, ismodified, data):
 
-        mutex.acquire()
-        con = sqlite3.connect(self.filename)
+        con = psycopg2.connect(config.dsn)
         cursor = con.cursor()
 
-        stmt = """INSERT INTO traffic (streamid, timestamp, direction, modified, payload)
-                  VALUES (?, ?, ?, ?, ?)"""
+        stmt = """INSERT INTO traffic (streamid, timestamp, direction, modified, payload) VALUES (%s, %s, %s, %s, %s)"""
 
-        cursor.execute(stmt, (sid, time(), direc, ismodified, data))
-        trafficid = cursor.lastrowid
+        cursor.execute(stmt, (stream.streamid, time(), direc, ismodified, data))
 
         con.commit()
         con.close()
-        mutex.release()
-
-        return trafficid

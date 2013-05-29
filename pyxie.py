@@ -41,11 +41,10 @@ def start():
 
     global log, trafficdb
 
-    logfile, dbfile= map(lambda x: x.replace("^:TS:^", timestamp),
-                        (config.logfile, config.dbfile))
+    logfile = config.logfile.replace(":TS:", timestamp)
 
     log = init_logger(filename=logfile, level=logging.DEBUG)
-    trafficdb = TrafficDB(filename=dbfile)
+    trafficdb = TrafficDB()
     _proxy_loop()
 
 # stop the server
@@ -73,8 +72,14 @@ def _proxy_loop():
     while _running == True:
         try:
             client, _ = proxy.accept()
+            if not client:
+                continue
+
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             server.connect(getrealdest(client))
+
+            if not server:
+                continue
 
             # TODO: add UDP support
             stream = config.protocol(client, server, config.modifiers,
