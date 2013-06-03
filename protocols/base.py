@@ -55,12 +55,15 @@ class BaseProto(metaclass=abc.ABCMeta):
 
         else:
             try:
-                self.client.shutdown(socket.SHUT_RDWR)
-                self.server.shutdown(socket.SHUT_RDWR)
-                self.client.close()
-                self.server.close()
+                if self.client:
+                    self.client.shutdown(socket.SHUT_RDWR)
+                    self.client.close()
+
+                if self.server:
+                    self.server.shutdown(socket.SHUT_RDWR)
+                    self.server.close()
             except:
-                pass
+                raise
 
     def call_modifiers(self, data):
         modified = data
@@ -84,8 +87,14 @@ class BaseProto(metaclass=abc.ABCMeta):
             self.num_connections -= 1
 
             if self.num_connections == 0:
-                server.close()
-                client.close()
+                try:
+                    if server:
+                        server.close()
+                    if client:
+                        client.close()
+
+                except:
+                    raise
 
             raise ClosedConnectionError()
 
@@ -95,6 +104,7 @@ class BaseProto(metaclass=abc.ABCMeta):
             data = self.recv(self.server, self.client)
             traffic_queue.put((time(), (self, 0, 0, data)))
             return data
+
         except:
             raise
 
