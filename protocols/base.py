@@ -13,7 +13,7 @@ class ClosedConnectionError(Exception):
     pass
 
 
-class TransportProto(metaclass=abc.ABCMeta):
+class BaseProto(metaclass=abc.ABCMeta):
 
     client = None
     server = None

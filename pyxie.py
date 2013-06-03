@@ -8,7 +8,7 @@ from threading import Thread
 import config
 from utils import getrealdest
 from modifier import Modifier
-from protocols.transport import traffic_queue
+from protocols.base import traffic_queue
 
 
 log = None
@@ -64,7 +64,7 @@ def stop():
 
 def output_loop():
     while True:
-        print(traffic_queue.get())
+        log.debug(traffic_queue.get())
 
 # run the server
 def _proxy_loop():

@@ -1,16 +1,14 @@
-import socket
-
-from protocols.transport import TransportProto, ClosedConnectionError
+from protocols.base import BaseProto, ClosedConnectionError
 
 
-class TCPProto(TransportProto):
+class TCPProto(BaseProto):
 
 
     proto_name = "tcp"
 
     def __init__(self, client, server, config):
 
-        TransportProto.__init__(self, client, server, config)
+        BaseProto.__init__(self, client, server, config)
 
     def forward_outbound(self):
         while True:
