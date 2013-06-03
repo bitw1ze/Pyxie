@@ -63,7 +63,7 @@ class BaseProto(metaclass=abc.ABCMeta):
                     self.server.shutdown(socket.SHUT_RDWR)
                     self.server.close()
             except:
-                raise
+                pass
 
     def call_modifiers(self, data):
         modified = data
@@ -94,7 +94,7 @@ class BaseProto(metaclass=abc.ABCMeta):
                         client.close()
 
                 except:
-                    raise
+                    pass
 
             raise ClosedConnectionError()
 
@@ -106,7 +106,7 @@ class BaseProto(metaclass=abc.ABCMeta):
             return data
 
         except:
-            raise
+            raise ConnectionClosedError()
 
     def recv_outbound(self):
 
@@ -116,7 +116,7 @@ class BaseProto(metaclass=abc.ABCMeta):
             return data
 
         except:
-            raise
+            raise ConnectionClosedError()
 
     def send(self, client, server, data):
 
@@ -130,10 +130,18 @@ class BaseProto(metaclass=abc.ABCMeta):
             #client.shutdown(socket.SHUT_RD)
             self.num_connections -= 1
 
-            if self.num_connections == 0:
-                server.close()
-                client.close()
-            log.debug("Close connection")
+            try:
+                if self.num_connections == 0:
+                    if server:
+                        server.close()
+
+                    if client:
+                        client.close()
+
+                log.debug("Close connection")
+
+            except:
+                pass
 
             raise ClosedConnectionError()
 
