@@ -57,15 +57,12 @@ class TransportProto(metaclass=abc.ABCMeta):
 
         else:
             try:
-                if self.client:
-                    self.client.shutdown(socket.SHUT_RDWR)
-                    self.client.close()
-
-                if self.server:
-                    self.server.shutdown(socket.SHUT_RDWR)
-                    self.server.close()
+                self.client.shutdown(socket.SHUT_RDWR)
+                self.server.shutdown(socket.SHUT_RDWR)
+                self.client.close()
+                self.server.close()
             except:
-                raise
+                pass
 
     def call_modifiers(self, data):
         modified = data
@@ -84,13 +81,13 @@ class TransportProto(metaclass=abc.ABCMeta):
             return data
 
         except:
+            #client.shutdown(socket.SHUT_RD)
+            #server.shutdown(socket.SHUT_WR)
             self.num_connections -= 1
 
             if self.num_connections == 0:
-                if server:
-                    server.close()
-                if client:
-                    client.close()
+                server.close()
+                client.close()
 
             raise ClosedConnectionError()
 
@@ -100,7 +97,7 @@ class TransportProto(metaclass=abc.ABCMeta):
             data = self.recv(self.server, self.client)
             Thread(
                     target=self.trafficdb.add_traffic,
-                    args=(self, False, False, data)
+                    args=(self, self.streamid, 0, 0, data)
             ).start()
             return data
         except:
@@ -112,7 +109,7 @@ class TransportProto(metaclass=abc.ABCMeta):
             data = self.recv(self.client, self.server)
             Thread(
                     target=self.trafficdb.add_traffic,
-                    args=(self, True, False, data)
+                    args=(self, self.streamid, 1, 0, data)
             ).start()
             return data
         except:
