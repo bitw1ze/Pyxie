@@ -3,18 +3,19 @@ import sys
 import traceback
 import logging
 from time import time
+from threading import Thread
 
 import config
 from utils import getrealdest
 from modifier import Modifier
-from trafficdb import TrafficDB
+from protocols.transport import traffic_queue
+
 
 log = None
 trafficdb = None
 proxy = None
 streams = []
 timestamp = str(int(time()))
-
 _running = False
 
 def init_logger(filename=None, level=logging.WARNING):
@@ -45,7 +46,7 @@ def start():
                         (config.logfile, config.dbfile))
 
     log = init_logger(filename=logfile, level=logging.DEBUG)
-    trafficdb = TrafficDB(filename=dbfile)
+    #trafficdb = TrafficDB(filename=dbfile)
     _proxy_loop()
 
 # stop the server
@@ -61,6 +62,10 @@ def stop():
     
     log.debug('stopped server')
 
+def output_loop():
+    while True:
+        print(traffic_queue.get())
+
 # run the server
 def _proxy_loop():
 
@@ -69,6 +74,7 @@ def _proxy_loop():
     proxy.bind(config.bindaddress)
     proxy.listen(100)
     log.debug('Pyxie started')
+    Thread(target=output_loop).start()
 
     while _running == True:
         try:
@@ -77,8 +83,7 @@ def _proxy_loop():
             server.connect(getrealdest(client))
 
             # TODO: add UDP support
-            stream = config.protocol(client, server, config.modifiers,
-                                    trafficdb, config.wrapper)
+            stream = config.protocol(client, server, config)
             log.debug("Initialized %s protocol" % type(stream))
 
             streams.append(stream)

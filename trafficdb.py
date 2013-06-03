@@ -1,10 +1,8 @@
 import sqlite3
 import logging
 from time import time
-from threading import Lock
 
 log = logging.getLogger("pyxie")
-mutex = Lock()
 
 
 class TrafficDB:
@@ -50,9 +48,8 @@ class TrafficDB:
         con.commit()
         con.close()
         
-    def add_stream(self, stream):
+    def _add_stream(self, stream):
 
-        mutex.acquire()
         con = sqlite3.connect(self.filename)
         cursor = con.cursor()
 
@@ -62,18 +59,11 @@ class TrafficDB:
         dstip, dstport = stream.server.getpeername()
         proto = stream.proto_name
 
-        cursor.execute(stmt, (srcip, srcport, dstip, dstport, proto))
-        streamid = cursor.lastrowid
-
         con.commit()
         con.close()
-        mutex.release()
 
-        return streamid
+    def _add_traffic(self, stream, sid, direc, ismodified, data):
 
-    def add_traffic(self, stream, sid, direc, ismodified, data):
-
-        mutex.acquire()
         con = sqlite3.connect(self.filename)
         cursor = con.cursor()
 
@@ -85,6 +75,3 @@ class TrafficDB:
 
         con.commit()
         con.close()
-        mutex.release()
-
-        return trafficid

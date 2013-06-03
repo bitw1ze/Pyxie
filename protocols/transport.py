@@ -1,10 +1,12 @@
 import abc
 import socket
 import logging
+from time import time
 from threading import Thread
-
+from queue import PriorityQueue
 
 log = logging.getLogger("pyxie")
+traffic_queue = PriorityQueue()
 
 
 class ClosedConnectionError(Exception):
@@ -16,24 +18,20 @@ class TransportProto(metaclass=abc.ABCMeta):
     client = None
     server = None
     modifiers = None
-    trafficdb = None
-    streamid = None
     num_connection = None
     wrapper = None
 
-    def __init__(self, client, server, modifiers, db, wrapper):
+    def __init__(self, client, server, config):
 
         self.client = client
         self.server = server
-        self.modifiers = modifiers
-        self.trafficdb = db
-        self.streamid = db.add_stream(self)
-        self.wrapper = wrapper
+        self.modifiers = config.modifiers
+        self.wrapper = config.wrapper
         self.num_connections = 2
 
-        if wrapper:
-            wrapper.wrap(self)
-            log.debug("Wrapped proto with %s" % wrapper)
+        if self.wrapper:
+            self.wrapper.wrap(self)
+            log.debug("Wrapped proto with %s" % self.wrapper)
 
     @abc.abstractmethod   
     def forward_outbound(self):
@@ -95,10 +93,7 @@ class TransportProto(metaclass=abc.ABCMeta):
         
         try:
             data = self.recv(self.server, self.client)
-            Thread(
-                    target=self.trafficdb.add_traffic,
-                    args=(self, self.streamid, 0, 0, data)
-            ).start()
+            traffic_queue.put((time(), (self, 0, 0, data)))
             return data
         except:
             raise
@@ -107,14 +102,11 @@ class TransportProto(metaclass=abc.ABCMeta):
 
         try:
             data = self.recv(self.client, self.server)
-            Thread(
-                    target=self.trafficdb.add_traffic,
-                    args=(self, self.streamid, 1, 0, data)
-            ).start()
+            traffic_queue.put((time(), (self, 1, 0, data)))
             return data
+
         except:
             raise
-
 
     def send(self, client, server, data):
 

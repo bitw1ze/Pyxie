@@ -8,9 +8,9 @@ class TCPProto(TransportProto):
 
     proto_name = "tcp"
 
-    def __init__(self, client, server, modifiers, db, wrapper):
+    def __init__(self, client, server, config):
 
-        TransportProto.__init__(self, client, server, modifiers, db, wrapper)
+        TransportProto.__init__(self, client, server, config)
 
     def forward_outbound(self):
         while True:
