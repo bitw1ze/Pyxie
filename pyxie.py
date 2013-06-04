@@ -71,6 +71,7 @@ def _proxy_loop():
 
     _running = True
     proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    proxy.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     proxy.bind(config.bindaddress)
     proxy.listen(100)
     log.debug('Pyxie started')
