@@ -32,7 +32,7 @@ class SSLWrapper:
         try:
             # TODO: add support for virtual hosts via SNI extension
             # stream.server.set_tlsext_host_name(server_name)
-            ctx = SSL.Context(SSL.SSLv3_METHOD)
+            ctx = SSL.Context(SSL.SSLv23_METHOD)
             ctx.set_cipher_list("ALL")
             ctx.set_verify(SSL.VERIFY_NONE, lambda a,b,c,d,e: True)
             sock = SSL.Connection(ctx, sock)
