@@ -89,8 +89,11 @@ def _proxy_loop():
             streams.append(stream)
             stream.start()
 
-            log.info("destination = %s:%s" % stream.server.getpeername())
-            log.info("source = %s:%s" % stream.client.getpeername())
+            try:
+                log.info("destination = %s:%s" % stream.server.getpeername())
+                log.info("source = %s:%s" % stream.client.getpeername())
+            except:
+                pass
 
         except Exception as e:
             try:
