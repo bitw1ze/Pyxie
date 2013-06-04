@@ -106,7 +106,7 @@ class BaseProto(metaclass=abc.ABCMeta):
             return data
 
         except:
-            raise ConnectionClosedError()
+            raise ClosedConnectionError()
 
     def recv_outbound(self):
 
@@ -116,7 +116,7 @@ class BaseProto(metaclass=abc.ABCMeta):
             return data
 
         except:
-            raise ConnectionClosedError()
+            raise ClosedConnectionError()
 
     def send(self, client, server, data):
 
