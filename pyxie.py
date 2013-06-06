@@ -16,7 +16,8 @@ trafficdb = None
 proxy = None
 streams = []
 timestamp = str(int(time()))
-_running = False
+pyxie_listener = None
+running = False
 
 def init_logger(filename=None, level=logging.WARNING):
 
@@ -37,21 +38,29 @@ def init_logger(filename=None, level=logging.WARNING):
     log.setLevel(level)
     return log
 
-# start the server
-def start():
+def start(listener):
 
-    global log, trafficdb
+    global log, trafficdb, pyxie_listener, running
 
     logfile, dbfile= map(lambda x: x.replace("^:TS:^", timestamp),
                         (config.logfile, config.dbfile))
+    pyxie_listener = listener
 
     log = init_logger(filename=logfile, level=logging.DEBUG)
     #trafficdb = TrafficDB(filename=dbfile)
-    _proxy_loop()
 
-# stop the server
+    proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    proxy.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    proxy.bind(config.bindaddress)
+    proxy.listen(100)
+    log.debug('Pyxie started')
+    Thread(target=output_loop).start()
+    running = True
+
+    Thread(target=_proxy_loop, args=(proxy))
+
 def stop():
-    _running = False 
+    running = False 
     try:
         proxy.shutdown(socket.SHUT_RDWR)
         proxy.close()
@@ -64,20 +73,16 @@ def stop():
 
 def output_loop():
     while True:
-        log.debug(traffic_queue.get())
+        latest = traffic_queue.get()
+        pyxie_listener.onTrafficReceived(latest)
+        log.debug(latest)
 
 # run the server
-def _proxy_loop():
+def _proxy_loop(args):
+    
+    proxy = args[0]
 
-    _running = True
-    proxy = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    proxy.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    proxy.bind(config.bindaddress)
-    proxy.listen(100)
-    log.debug('Pyxie started')
-    Thread(target=output_loop).start()
-
-    while _running == True:
+    while running == True:
         try:
             client, _ = proxy.accept()
             server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
