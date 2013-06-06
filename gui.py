@@ -74,7 +74,7 @@ class PyxieGui(QWidget):
 
         stream_labels = ['client ip', 'client port', 
                          'server ip', 'server port',
-                         'created']
+                         'protocol', 'created']
 
         # set up the stream tab
         self.streammodel = QStandardItemModel()
@@ -137,26 +137,28 @@ class PyxieGui(QWidget):
 
     def init_data(self):
 
-        Stream = namedtuple('Stream', ['client_ip', 'client_port', 
-                                       'server_ip', 'server_port',
-                                       'timestamp'])
-
-        time1 = datetime.fromtimestamp(time()).strftime('%Y-%m-%d %H:%M:%S')
-        time2 = datetime.fromtimestamp(time()+1).strftime('%Y-%m-%d %H:%M:%S')
-        stream1 = Stream('192.168.12.44', 25712, '69.44.13.172', 443, time1)
-        stream2 = Stream('192.168.12.44', 25712, '69.44.13.172', 443, time2)
-        
-        self.insert_stream(stream1)
-        self.insert_stream(stream2)
-
+        pass
+                
     def show_traffic(self, timestamp):
 
         self.streamdump.setText(timestamp)
 
     def insert_stream(self, stream):
 
+        Stream = namedtuple('Stream', 
+                           ['client_ip', 'client_port', 
+                            'server_ip', 'server_port',
+                            'protocol', 'timestamp'])
+
+        client_ip, client_port = stream.client.getpeername()
+        server_ip, server_port = stream.server.getpeername()
+        proto = stream.proto_name
+        ts = datetime.fromtimestamp(time()).strftime('%Y-%m-%d %H:%M:%S')
+
+        vals = [client_ip, client_port, server_ip, server_port, proto, ts]
         items = []
-        for val in stream:
+
+        for val in vals:
             item = QStandardItem(str(val))
             item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             items.append(item)
@@ -203,7 +205,7 @@ class PyxieGui(QWidget):
 
     def onConnectionEstablished(self, stream):
 
-        print(stream)
+        self.insert_stream(stream)
 
     def onTrafficReceived(self, traffic):
 
