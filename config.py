@@ -1,15 +1,19 @@
-# bindaddress: tuple containing address of interface and port to bind proxy 
-bindaddress = ('', 443)
-
 from wrappers import SSLWrapper
 wrapper = SSLWrapper
 
 from protocols.http import HTTPProto
 protocol = HTTPProto
 
-realdest = ('www.facebook.com', 443)
-
 modifiers = []
 
-logfile = '/tmp/pyxie.:TS:.log'
-dbfile = '/tmp/pyxie.:TS:.db'
+config = {
+        'bind_host'     :       '',
+        'bind_port'     :       443,
+        'protocol'      :       HTTPProto,
+        'wrapper'       :       SSLWrapper,
+        'real_addr'     :       'www.facebook.com',
+        'real_port'     :       443,
+        'modifiers'     :       modifiers,
+        'logfile'       :       '/tmp/pyxie.:TS:.log',
+        'dbfile'        :       '/tmp/pyxie.:TS:.db'
+        }

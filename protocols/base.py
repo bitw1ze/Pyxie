@@ -25,8 +25,8 @@ class BaseProto(metaclass=abc.ABCMeta):
 
         self.client = client
         self.server = server
-        self.modifiers = config.modifiers
-        self.wrapper = config.wrapper
+        self.modifiers = config['modifiers']
+        self.wrapper = config['wrapper']
         self.num_connections = 2
 
         if self.wrapper:

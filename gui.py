@@ -3,6 +3,7 @@
 import sys
 import re
 import traceback
+import logging
 from collections import namedtuple
 from datetime import datetime
 from time import time
@@ -14,10 +15,12 @@ from PyQt4.QtGui import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                          QTabWidget, QMenuBar, QAction)
 from PyQt4.QtCore import Qt, QSize
 
-import pyxie
+from pyxie import Proxy
 import modifier
-import config
+from config import config
 
+
+log = None
 
 class StreamTableView(QTableView):
 
@@ -43,7 +46,7 @@ class PyxieGui(QWidget):
 
         QWidget.__init__(self)
 
-        self.pyxie_listener = PyxieListener()
+        self.proxy = Proxy(config, self)
 
         self.init_ui()
         self.init_data()
@@ -167,20 +170,20 @@ class PyxieGui(QWidget):
             self.proxy_btn.setText("Starting Proxy")
 
             try:
-                pyxie.start(self.pyxie_listener)
+                self.proxy.start()
             except:
                 self.proxy_btn.setText("Proxy Failed")
                 self.proxy_btn.setChecked(False)
                 traceback.print_exc()
                 return
 
-            while not pyxie.running:
+            while not self.proxy.running:
                 pass
 
             self.proxy_btn.setText("Proxy Running")
 
         else:
-            pyxie.stop()
+            self.proxy.stop()
             self.proxy_btn.setText("Proxy Stopped")
 
     def toggle_intercept(self, active):
@@ -195,11 +198,8 @@ class PyxieGui(QWidget):
 
         pass
 
-class PyxieListener:
 
-    def __init__(self):
-
-        pass
+    # The following section defines events triggered by Proxy objects
 
     def onConnectionEstablished(self, stream):
 
@@ -210,19 +210,46 @@ class PyxieListener:
         print(traffic)
 
 
+def init_logger(filename=None, level=logging.WARNING):
+
+    """Initializes and returns a Logger object"""
+
+    log = logging.getLogger('pyxie')
+    formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+
+    if filename:
+        fhdlr = logging.FileHandler(filename)
+        fhdlr.setFormatter(formatter)
+        log.addHandler(fhdlr) 
+
+    chdlr = logging.StreamHandler()
+    chdlr.setFormatter(formatter)
+    log.addHandler(chdlr)
+    
+    log.setLevel(level)
+    return log
+
 def mod1(data):
 
-    return re.sub(r'Accept-Encoding:.*\r\n', '', data.decode('utf8', 'ignore')).encode('utf8')
+    return re.sub(r'Accept-Encoding:.*\r\n', '', 
+            data.decode('utf8', 'ignore')).encode('utf8')
 
 def main():
 
-    config.modifiers.append(modifier.CustomModifier(mod1))
+    global log
+
+    config['modifiers'].append(modifier.CustomModifier(mod1))
+    timestamp = str(int(time()))
+    logfile = config['logfile'].replace("^:TS:^", timestamp)
+    log = init_logger(filename=logfile, level=logging.DEBUG)
 
     app = QApplication(sys.argv)
     window = PyxieGui()
     window.resize(800, 600)
     window.show()
-    sys.exit(app.exec_())
+
+    return app.exec_()
+
 
 if __name__ == "__main__":
     sys.exit(main())
