@@ -6,8 +6,9 @@ class HTTPProto(TCPProto):
 
     proto_name = 'http'
 
-    def __init__(self, client, server, config):
-        TCPProto.__init__(self, client, server, config)
+    def __init__(self, stream_id, client, server, config, listener):
+
+        TCPProto.__init__(self, stream_id, client, server, config, listener)
 
     def forward_inbound(self):
 

@@ -6,9 +6,9 @@ class TCPProto(BaseProto):
 
     proto_name = "tcp"
 
-    def __init__(self, client, server, config):
+    def __init__(self, stream_id, client, server, config, listener):
 
-        BaseProto.__init__(self, client, server, config)
+        BaseProto.__init__(self, stream_id, client, server, config, listener)
 
     def forward_outbound(self):
         while True:

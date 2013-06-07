@@ -5,6 +5,8 @@ from time import time
 from threading import Thread
 from queue import PriorityQueue
 
+from records import TrafficRecord
+
 log = logging.getLogger("pyxie")
 traffic_queue = PriorityQueue()
 
@@ -17,16 +19,16 @@ class BaseProto(metaclass=abc.ABCMeta):
 
     client = None
     server = None
-    modifiers = None
     num_connection = None
     wrapper = None
 
-    def __init__(self, client, server, config):
+    def __init__(self, stream_id, client, server, config, listener):
 
+        self.stream_id = stream_id
         self.client = client
         self.server = server
-        self.modifiers = config['modifiers']
         self.wrapper = config['wrapper']
+        self.listener = listener
         self.num_connections = 2
 
         if self.wrapper:
@@ -65,23 +67,24 @@ class BaseProto(metaclass=abc.ABCMeta):
             except:
                 pass
 
-    def call_modifiers(self, data):
-        modified = data
-        for m in self.modifiers:
-            modified = m.modify(modified)
-        return modified
-
-    def recv(self, client, server):
+    def recv(self, client, server, buflen=4096):
 
         try:
-            data = client.recv(4096)
-
-            if not data:
+            payload = client.recv(buflen)
+            if not payload:
                 raise Exception("No data received")
 
-            return data
+            record = TrafficRecord(stream_id=self.stream_id,
+                                   timestamp=time(),
+                                   direction=(1 if self.client == client else 0),
+                                   payload=payload)
+            self.listener.onTrafficReceive(record)
 
-        except:
+            return payload 
+
+        except Exception as e:
+            import traceback
+            traceback.print_exc()
             #client.shutdown(socket.SHUT_RD)
             #server.shutdown(socket.SHUT_WR)
             self.num_connections -= 1
@@ -98,32 +101,37 @@ class BaseProto(metaclass=abc.ABCMeta):
 
             raise ClosedConnectionError()
 
-    def recv_inbound(self):
+    def recv_inbound(self, buflen=4096):
+
+        try:
+            payload = self.recv(self.server, self.client, buflen)
+            
+            return payload
+
+        except:
+            raise ClosedConnectionError()
+
         
+    def recv_outbound(self, buflen=4096):
+
         try:
-            data = self.recv(self.server, self.client)
-            traffic_queue.put((time(), (self, 0, 0, data)))
-            return data
+            payload = self.recv(self.client, self.server, buflen)
+            
+            return payload
 
         except:
             raise ClosedConnectionError()
 
-    def recv_outbound(self):
+    def send(self, client, server, payload):
+
+        if not payload:
+            return
+
+        payload = self.listener.onTrafficModify(payload)
 
         try:
-            data = self.recv(self.client, self.server)
-            traffic_queue.put((time(), (self, 1, 0, data)))
-            return data
-
-        except:
-            raise ClosedConnectionError()
-
-    def send(self, client, server, data):
-
-        modified = self.call_modifiers(data)
-
-        try:
-            server.sendall(modified)
+            server.sendall(payload)
+            self.listener.onTrafficSend(payload)
 
         except:
             #server.shutdown(socket.SHUT_WR)
@@ -145,16 +153,16 @@ class BaseProto(metaclass=abc.ABCMeta):
 
             raise ClosedConnectionError()
 
-    def send_inbound(self, data):
+    def send_inbound(self, payload):
 
         try:
-            self.send(self.server, self.client, data)
+            self.send(self.server, self.client, payload)
         except:
             raise
 
-    def send_outbound(self, data):
+    def send_outbound(self, payload):
 
         try:
-            self.send(self.client, self.server, data)
+            self.send(self.client, self.server, payload)
         except:
             raise

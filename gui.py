@@ -4,7 +4,6 @@ import sys
 import re
 import traceback
 import logging
-from collections import namedtuple
 from datetime import datetime
 from time import time
 
@@ -79,10 +78,8 @@ class StreamTableView(QTableView):
 
     def selectionChanged(self, selected, deselected):
 
-        indexes = selected.indexes()
-
-        timestamp = indexes[-1].data()
-        self.parent.show_traffic(timestamp)
+        stream_id = selected.indexes()[0].row()
+        self.parent.show_traffic_history(stream_id)
 
 
 class PyxieGui(QWidget):
@@ -92,7 +89,9 @@ class PyxieGui(QWidget):
 
         QWidget.__init__(self)
 
-        self.proxy = Proxy(config, self)
+        self.proxy = Proxy(config=config, listener=PyxieListener(self))
+        self.stream_history = []
+        self.modifiers = config['modifiers']
 
         self.init_ui()
         self.init_data()
@@ -185,16 +184,14 @@ class PyxieGui(QWidget):
 
         pass
                 
-    def show_traffic(self, timestamp):
+    def show_traffic_history(self, stream_id):
 
-        self.streamdump.setText(timestamp)
+        dump = b"".join(self.stream_history[stream_id])
+        self.streamdump.setText(str(dump, 'utf8', 'ignore'))
 
     def insert_stream(self, stream):
 
-        Stream = namedtuple('Stream', 
-                           ['client_ip', 'client_port', 
-                            'server_ip', 'server_port',
-                            'protocol', 'timestamp'])
+        self.stream_history.append([])
 
         client_ip, client_port = stream.client.getpeername()
         server_ip, server_port = stream.server.getpeername()
@@ -211,6 +208,12 @@ class PyxieGui(QWidget):
 
         self.streammodel.appendRow(items)
         self.streamtable.resizeColumnsToContents()
+
+    def insert_traffic_into_history(self, data):
+
+        stream_id = int(data.stream_id)
+        payload = data.payload
+        self.stream_history[stream_id].append(payload)
 
     def toggle_proxy(self, active):
 
@@ -246,17 +249,13 @@ class PyxieGui(QWidget):
 
         pass
 
+    def call_modifiers(self, data):
 
-    # The following section defines events triggered by Proxy objects
-
-    def onConnectionEstablished(self, stream):
-
-        self.insert_stream(stream)
-
-    def onTrafficReceived(self, traffic):
-
-        print(traffic)
-
+        modified = data
+        for m in self.modifiers:
+            modified = m.modify(modified)
+        return modified
+    
 
 def init_logger(filename=None, level=logging.WARNING):
 

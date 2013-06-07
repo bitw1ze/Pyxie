@@ -6,7 +6,6 @@ from time import time
 from threading import Thread
 
 from utils import getrealdest
-from modifier import Modifier
 from protocols.base import traffic_queue
 
 
@@ -53,7 +52,6 @@ class Proxy:
         while True:
             latest = traffic_queue.get()
             self.listener.onTrafficReceived(latest)
-            log.debug(latest)
 
     def _proxy_loop(self):
         
@@ -69,12 +67,15 @@ class Proxy:
                 server.connect(getrealdest(client))
 
                 # TODO: add UDP support
-                stream = self.config['protocol'](client, server, self.config)
+                protocol = self.config['protocol']
+                stream_id = len(self.streams)
+                stream = protocol(stream_id, client, server, 
+                                  self.config, self.listener)
                 log.debug("Initialized %s protocol" % type(stream))
 
                 self.streams.append(stream)
-                stream.start()
                 self.listener.onConnectionEstablished(stream)
+                stream.start()
 
                 try:
                     log.info("destination = %s:%s" % stream.server.getpeername())
