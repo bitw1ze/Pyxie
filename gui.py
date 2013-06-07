@@ -22,6 +22,52 @@ from config import config
 
 log = None
 
+
+class PyxieBaseListener:
+
+
+    def onTrafficReceive(self, data):
+
+        pass
+
+    def onConnectionEstablished(self, data):
+
+        pass
+
+    def onTrafficModify(self, data):
+
+        pass
+
+    def onTrafficSend(self, data):
+
+        pass
+
+
+class PyxieListener(PyxieBaseListener):
+
+
+    def __init__(self, ui):
+
+        self.ui = ui
+
+    def onConnectionEstablished(self, stream):
+
+        self.ui.insert_stream(stream)
+
+    def onTrafficReceive(self, data):
+
+        self.ui.insert_traffic_into_history(data)
+
+    def onTrafficModify(self, data):
+
+        return self.ui.call_modifiers(data)
+
+    def onTrafficSend(self, data):
+
+        pass
+
+
+
 class StreamTableView(QTableView):
 
 
