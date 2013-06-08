@@ -83,10 +83,8 @@ class BaseProto(metaclass=abc.ABCMeta):
             return payload 
 
         except Exception as e:
-            import traceback
-            traceback.print_exc()
-            #client.shutdown(socket.SHUT_RD)
-            #server.shutdown(socket.SHUT_WR)
+            client.shutdown(socket.SHUT_RD)
+            server.shutdown(socket.SHUT_WR)
             self.num_connections -= 1
 
             if self.num_connections == 0:
