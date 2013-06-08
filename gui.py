@@ -4,18 +4,19 @@ import sys
 import re
 import traceback
 import logging
+import string
 from datetime import datetime
 from time import time
 
 from PyQt4.QtGui import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
-                         QPushButton, QTextEdit,
-                         QTableView, QAbstractItemView,
+                         QPushButton, QTextEdit, QTableView, QAbstractItemView,
                          QStandardItemModel, QStandardItem,
-                         QTabWidget, QMenuBar, QAction)
-from PyQt4.QtCore import Qt, QSize
+                         QTabWidget, QMenuBar, QAction, QDesktopWidget)
+from PyQt4.QtCore import QObject, Qt, SIGNAL
 
-from pyxie import Proxy
 import modifier
+import utils
+from pyxie import Proxy
 from config import config
 
 
@@ -42,20 +43,23 @@ class PyxieBaseListener:
         pass
 
 
-class PyxieListener(PyxieBaseListener):
+class PyxieListener(PyxieBaseListener, QObject):
 
 
     def __init__(self, ui):
 
+        QObject.__init__(self)
         self.ui = ui
 
     def onConnectionEstablished(self, stream):
 
-        self.ui.insert_stream(stream)
+        self.latest_stream = stream
+        self.emit(SIGNAL("onConnectionEstablished()"))
 
     def onTrafficReceive(self, data):
 
-        self.ui.insert_traffic_into_history(data)
+        self.latest_traffic = data
+        self.emit(SIGNAL("onTrafficReceive()"))
 
     def onTrafficModify(self, data):
 
@@ -78,27 +82,49 @@ class StreamTableView(QTableView):
 
     def selectionChanged(self, selected, deselected):
 
-        stream_id = selected.indexes()[0].row()
-        self.parent.show_traffic_history(stream_id)
+        try:
+            stream_id = selected.indexes()[0].row()
+            self.parent.show_traffic_history(stream_id)
+
+        except IndexError as e:
+            return
 
 
 class PyxieGui(QWidget):
 
 
-    def __init__(self):
+    def __init__(self, width=800, height=600):
 
         QWidget.__init__(self)
 
-        self.proxy = Proxy(config=config, listener=PyxieListener(self))
+        self.listener = PyxieListener(self)
+        self.proxy = Proxy(config=config, listener=self.listener)
         self.stream_history = []
         self.modifiers = config['modifiers']
 
-        self.init_ui()
+        self.init_window(width, height)
+        self.init_widgets()
+        self.init_signals()
         self.init_data()
 
-    def init_ui(self):
+    def init_window(self, width, height):
 
         self.setWindowTitle('Pyxie')
+        self.resize(width, height)
+        qr = self.frameGeometry()
+        qr.moveCenter(QDesktopWidget().availableGeometry().center())
+        self.move(qr.topLeft())
+        self.showMaximized()
+        self.show()
+
+    def init_signals(self):
+
+        QObject.connect(self.listener, SIGNAL('onTrafficReceive()'), 
+                self.insert_traffic_into_history)
+        QObject.connect(self.listener, SIGNAL('onConnectionEstablished()'),
+                self.insert_stream)
+
+    def init_widgets(self):
 
         tabs = QTabWidget()
         tab1 = QWidget()
@@ -126,9 +152,8 @@ class PyxieGui(QWidget):
         self.streammodel.setHorizontalHeaderLabels(stream_labels)
         
         self.streamtable = StreamTableView(self)
-        self.streamtable.setSelectionBehavior(QAbstractItemView.SelectRows)
-        self.streamtable.setSelectionMode(QAbstractItemView.SingleSelection)
         self.streamtable.setModel(self.streammodel)
+        self.streamtable.setSelectionBehavior(QAbstractItemView.SelectRows)
         
         # create textedit area where traffic goes
         self.streamdump = QTextEdit()
@@ -178,19 +203,18 @@ class PyxieGui(QWidget):
 
         self.setLayout(main_layout)
 
-        self.show()
-
     def init_data(self):
 
         pass
                 
     def show_traffic_history(self, stream_id):
 
-        dump = b"".join(self.stream_history[stream_id])
-        self.streamdump.setText(str(dump, 'utf8', 'ignore'))
+        dump = str(b''.join(self.stream_history[stream_id]), 'utf8', 'ignore')
+        self.streamdump.setText(utils.printable_ascii(dump))
 
-    def insert_stream(self, stream):
+    def insert_stream(self):
 
+        stream = self.listener.latest_stream
         self.stream_history.append([])
 
         client_ip, client_port = stream.client.getpeername()
@@ -209,8 +233,9 @@ class PyxieGui(QWidget):
         self.streammodel.appendRow(items)
         self.streamtable.resizeColumnsToContents()
 
-    def insert_traffic_into_history(self, data):
+    def insert_traffic_into_history(self):
 
+        data = self.listener.latest_traffic
         stream_id = int(data.stream_id)
         payload = data.payload
         self.stream_history[stream_id].append(payload)
@@ -292,8 +317,6 @@ def main():
 
     app = QApplication(sys.argv)
     window = PyxieGui()
-    window.resize(800, 600)
-    window.show()
 
     return app.exec_()
 
