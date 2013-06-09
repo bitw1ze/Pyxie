@@ -2,12 +2,12 @@
 
 import sys
 import re
-import traceback
 import logging
 import string
 from datetime import datetime
 from time import time
 from threading import Lock
+from queue import PriorityQueue
 
 from PyQt4.QtGui import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                          QPushButton, QTextEdit, QTableView, QAbstractItemView,
@@ -35,10 +35,6 @@ class PyxieBaseListener:
 
         pass
 
-    def onTrafficModify(self, data):
-
-        pass
-
     def onTrafficSend(self, data):
 
         pass
@@ -54,16 +50,11 @@ class PyxieListener(PyxieBaseListener, QObject):
 
     def onConnectionEstablished(self, stream):
 
-        self.latest_stream = stream
-        self.emit(SIGNAL("onConnectionEstablished()"))
+        self.emit(SIGNAL("onConnectionEstablished"), stream)
 
-    def onTrafficReceive(self, data):
+    def onTrafficReceive(self, traffic):
 
-        self.emit(SIGNAL("onTrafficReceive()"), data)
-
-    def onTrafficModify(self, data):
-
-        return self.ui.call_modifiers(data)
+        self.emit(SIGNAL("onTrafficReceive"), traffic)
 
     def onTrafficSend(self, data):
 
@@ -118,12 +109,12 @@ class PyxieGui(QWidget):
 
     def init_signals(self):
 
-        self.lock = Lock()
-
-        QObject.connect(self.listener, SIGNAL('onTrafficReceive()'), 
-                self.insert_traffic_into_history)
-        QObject.connect(self.listener, SIGNAL('onConnectionEstablished()'),
-                self.insert_stream)
+        QObject.connect(self.listener, 
+                        SIGNAL('onTrafficReceive'), 
+                        self.put_traffic_history)
+        QObject.connect(self.listener, 
+                        SIGNAL('onConnectionEstablished'),
+                        self.put_stream)
 
     def init_widgets(self):
 
@@ -204,16 +195,18 @@ class PyxieGui(QWidget):
 
     def init_data(self):
 
-        pass
+        self.interception_on = False
+        self.intercept_lock = Lock()
+        self.latest_traffic = None
                 
     def show_traffic_history(self, stream_id):
 
-        dump = str(b''.join(self.stream_history[stream_id]), 'utf8', 'ignore')
+        conversation = [h.payload for h in self.stream_history[stream_id]]
+        dump = str(b''.join(conversation), 'utf8', 'ignore')
         self.stream_dump.setText(utils.printable_ascii(dump))
 
-    def insert_stream(self):
+    def put_stream(self, stream):
 
-        stream = self.listener.latest_stream
         self.stream_history.append([])
 
         client_ip, client_port = stream.client.getpeername()
@@ -232,13 +225,18 @@ class PyxieGui(QWidget):
         self.streammodel.appendRow(items)
         self.streamtable.resizeColumnsToContents()
 
-    def insert_traffic_into_history(self, data):
+    def put_traffic_history(self, traffic):
 
-        self.lock.acquire()
-        stream_id = int(data.stream_id)
-        payload = data.payload
-        self.stream_history[stream_id].append(payload)
-        self.lock.release()
+        self.stream_history[traffic.stream.stream_id].append(traffic)
+        # TODO: call modifiers with entire record instead of just payload
+        payload = self.call_modifiers(traffic.payload)
+
+        if self.interception_on:
+            self.intercept_lock.acquire()
+            self.latest_traffic = traffic
+            self.intercept_dump.setText(str(payload, 'utf8', 'ignore'))
+        else:
+            traffic.stream.unpause(payload)
 
     def toggle_proxy(self, active):
 
@@ -250,7 +248,6 @@ class PyxieGui(QWidget):
             except:
                 self.proxy_btn.setText("Proxy Failed")
                 self.proxy_btn.setChecked(False)
-                traceback.print_exc()
                 return
 
             while not self.proxy.running:
@@ -264,11 +261,20 @@ class PyxieGui(QWidget):
 
     def toggle_intercept(self, active):
 
-        pass
+        if self.interception_on:
+            self.forward_traffic()
+
+        self.interception_on = not self.interception_on
 
     def forward_traffic(self):
 
-        pass
+        if self.interception_on and self.latest_traffic:
+            payload = self.intercept_dump.toPlainText()
+            self.intercept_dump.setText("")
+            self.intercept_lock.release()
+            stream = self.latest_traffic.stream
+            self.latest_traffic = None
+            stream.unpause(payload)
 
     def drop_traffic(self):
 
@@ -301,16 +307,10 @@ def init_logger(filename=None, level=logging.WARNING):
     log.setLevel(level)
     return log
 
-def mod1(data):
-
-    return re.sub(r'Accept-Encoding:.*\r\n', '', 
-            data.decode('utf8', 'ignore')).encode('utf8')
-
 def main():
 
     global log
 
-    config['modifiers'].append(modifier.CustomModifier(mod1))
     timestamp = str(int(time()))
     logfile = config['logfile'].replace("^:TS:^", timestamp)
     log = init_logger(filename=logfile, level=logging.DEBUG)

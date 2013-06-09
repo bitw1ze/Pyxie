@@ -4,6 +4,7 @@ import logging
 from time import time
 from threading import Thread
 from queue import PriorityQueue
+from threading import Lock
 
 from records import TrafficRecord
 
@@ -29,6 +30,8 @@ class BaseProto(metaclass=abc.ABCMeta):
         self.wrapper = config['wrapper']
         self.listener = listener
         self.num_connections = 2
+        self.pause_lock = Lock()
+        self.pause_lock.acquire()
 
         if self.wrapper:
             self.wrapper.wrap(self)
@@ -69,17 +72,16 @@ class BaseProto(metaclass=abc.ABCMeta):
     def recv(self, client, server, buflen=4096):
 
         try:
-            payload = client.recv(buflen)
-            if not payload:
+            self.payload = client.recv(buflen)
+            if not self.payload:
                 raise Exception("No data received")
 
-            record = TrafficRecord(stream_id=self.stream_id,
+            record = TrafficRecord(stream=self,
                                    timestamp=time(),
                                    direction=(1 if self.client == client else 0),
-                                   payload=payload)
+                                   payload=self.payload)
             self.listener.onTrafficReceive(record)
-
-            return payload 
+            self.pause()
 
         except Exception as e:
             client.shutdown(socket.SHUT_RD)
@@ -101,10 +103,8 @@ class BaseProto(metaclass=abc.ABCMeta):
     def recv_inbound(self, buflen=4096):
 
         try:
-            payload = self.recv(self.server, self.client, buflen)
+            self.recv(self.server, self.client, buflen)
             
-            return payload
-
         except:
             raise ClosedConnectionError()
 
@@ -112,25 +112,21 @@ class BaseProto(metaclass=abc.ABCMeta):
     def recv_outbound(self, buflen=4096):
 
         try:
-            payload = self.recv(self.client, self.server, buflen)
+            self.recv(self.client, self.server, buflen)
             
-            return payload
-
         except:
             raise ClosedConnectionError()
 
-    def send(self, client, server, payload):
+    def send(self, client, server):
 
-        if not payload:
+        if not self.payload:
             return
 
-        payload = self.listener.onTrafficModify(payload)
-
         try:
-            server.sendall(payload)
-            self.listener.onTrafficSend(payload)
+            server.sendall(self.payload)
+            self.listener.onTrafficSend(self.payload)
 
-        except:
+        except Exception as e:
             #server.shutdown(socket.SHUT_WR)
             #client.shutdown(socket.SHUT_RD)
             self.num_connections -= 1
@@ -150,16 +146,25 @@ class BaseProto(metaclass=abc.ABCMeta):
 
             raise ClosedConnectionError()
 
-    def send_inbound(self, payload):
+    def send_inbound(self):
 
         try:
-            self.send(self.server, self.client, payload)
+            self.send(self.server, self.client)
         except:
             raise
 
-    def send_outbound(self, payload):
+    def send_outbound(self):
 
         try:
-            self.send(self.client, self.server, payload)
+            self.send(self.client, self.server)
         except:
             raise
+
+    def pause(self):
+
+        self.pause_lock.acquire()
+
+    def unpause(self, payload):
+        
+        self.payload = payload
+        self.pause_lock.release()

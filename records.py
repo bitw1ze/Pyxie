@@ -9,7 +9,7 @@ StreamRecord = namedtuple('StreamRecord', ['stream_id',
                                            'protocol', 
                                            'timestamp'])
 
-TrafficRecord = namedtuple('TrafficRecord', ['stream_id', 
+TrafficRecord = namedtuple('TrafficRecord', ['stream', 
                                              'timestamp', 
                                              'direction',
                                              'payload'])

@@ -15,8 +15,8 @@ class TCPProto(BaseProto):
         while True:
             
             try:
-                data = self.recv_outbound()
-                self.send_outbound(data)
+                self.recv_outbound()
+                self.send_outbound()
 
             except ClosedConnectionError as e:
                 return
@@ -26,8 +26,8 @@ class TCPProto(BaseProto):
         while True:
 
             try:
-                data = self.recv_inbound()
-                self.send_inbound(data)
+                self.recv_inbound()
+                self.send_inbound()
 
             except ClosedConnectionError as e:
                 return

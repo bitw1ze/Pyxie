@@ -1,6 +1,5 @@
 import socket
 import sys
-import traceback
 import logging
 from time import time
 from threading import Thread
@@ -81,6 +80,7 @@ class Proxy:
                 sys.exit(0)
 
             except Exception as e:
+                log.exception(e)
                 try:
                     server.close()
                     client.close()
