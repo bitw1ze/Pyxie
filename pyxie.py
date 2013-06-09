@@ -6,7 +6,6 @@ from time import time
 from threading import Thread
 
 from utils import getrealdest
-from protocols.base import traffic_queue
 
 
 log = logging.getLogger("pyxie")
@@ -31,7 +30,6 @@ class Proxy:
         self.proxy.listen(100)
         log.debug('Pyxie started')
 
-        Thread(target=self._output_loop).start()
         Thread(target=self._proxy_loop).start()
 
     def stop(self):
@@ -47,15 +45,8 @@ class Proxy:
         
         log.debug('stopped server')
 
-    def _output_loop(self):
-
-        while True:
-            latest = traffic_queue.get()
-            self.listener.onTrafficReceived(latest)
-
     def _proxy_loop(self):
         
-        log.debug("Got to proxy loop")
         self.running = True
 
         while self.running:
