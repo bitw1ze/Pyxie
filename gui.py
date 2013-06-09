@@ -72,7 +72,6 @@ class PyxieListener(PyxieBaseListener, QObject):
         pass
 
 
-
 class StreamTableView(QTableView):
 
 
@@ -130,11 +129,11 @@ class PyxieGui(QWidget):
 
     def init_widgets(self):
 
-        tabs = QTabWidget()
-        tab1 = QWidget()
-        tab2 = QWidget()
+        tabs = QTabWidget(self)
+        tab1 = QWidget(self)
+        tab2 = QWidget(self)
 
-        menu_bar = QMenuBar()
+        menu_bar = QMenuBar(self)
         file_menu = menu_bar.addMenu('&File')
 
         open = QAction("Exit", self) 
@@ -158,48 +157,48 @@ class PyxieGui(QWidget):
         self.streamtable.setSelectionBehavior(QAbstractItemView.SelectRows)
         
         # create textedit area where traffic goes
-        self.streamdump = QTextEdit()
+        self.stream_dump = QTextEdit(self)
 
         # create buttons
         self.proxy_btn = QPushButton('Proxy Stopped')
         self.proxy_btn.setCheckable(True)
         self.proxy_btn.clicked[bool].connect(self.toggle_proxy)
         
-        # add widgets to the main layout
+        # add widgets to stream tab
         stream_tab = QVBoxLayout(tab1)
         stream_tab.addWidget(self.proxy_btn)
         stream_tab.addWidget(self.streamtable)
-        stream_tab.addWidget(self.streamdump)
+        stream_tab.addWidget(self.stream_dump)
 
-        # set up intercept tab
+        # create buttons and add them to hbox widget
         intercept_btn = QPushButton('Intercept', self)
         intercept_btn.setCheckable(True)
         intercept_btn.clicked[bool].connect(self.toggle_intercept)
 
         forward_btn = QPushButton('Forward', self)
-        intercept_btn.clicked[bool].connect(self.forward_traffic)
+        forward_btn.clicked[bool].connect(self.forward_traffic)
 
         drop_btn = QPushButton('Drop', self)
-        intercept_btn.clicked[bool].connect(self.drop_traffic)
+        drop_btn.clicked[bool].connect(self.drop_traffic)
 
         intercept_buttons = QHBoxLayout()
         intercept_buttons.addWidget(intercept_btn)
         intercept_buttons.addWidget(forward_btn)
         intercept_buttons.addWidget(drop_btn)
 
-        self.traffic_dump = QTextEdit() 
+        # create textedit area where traffic goes
+        self.intercept_dump = QTextEdit(self)
 
-        intercept_vbox = QVBoxLayout()
-        intercept_vbox.addLayout(intercept_buttons)
-        intercept_vbox.addWidget(self.traffic_dump)
+        # add widgets to stream tab
+        intercept_tab = QVBoxLayout(tab2)
+        intercept_tab.addLayout(intercept_buttons)
+        intercept_tab.addWidget(self.intercept_dump)
 
-        intercept_tab = QWidget(tab2)
-        intercept_tab.setLayout(intercept_vbox)
-
+        # add tabs to the tabs widget
         tabs.addTab(tab1, "Streams")
         tabs.addTab(tab2, "Intercept")
 
-        main_layout = QVBoxLayout()
+        main_layout = QVBoxLayout(self)
         main_layout.addWidget(menu_bar)
         main_layout.addWidget(tabs)
 
@@ -212,7 +211,7 @@ class PyxieGui(QWidget):
     def show_traffic_history(self, stream_id):
 
         dump = str(b''.join(self.stream_history[stream_id]), 'utf8', 'ignore')
-        self.streamdump.setText(utils.printable_ascii(dump))
+        self.stream_dump.setText(utils.printable_ascii(dump))
 
     def insert_stream(self):
 
