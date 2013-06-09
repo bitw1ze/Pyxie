@@ -12,6 +12,7 @@ def getrealdest(csock):
     
     return (address, port)
     """
+
     return (config['real_addr'], config['real_port'])
 
 def printable_ascii(data):
@@ -26,6 +27,7 @@ def dump_ascii(payload, step=16):
         line_end = i + step if i+step < len(payload) else len(payload)
         line = payload[i:line_end]
         arraydump.append(line)
+
     return arraydump
 
 def dump_hex(payload, step=32):
@@ -45,4 +47,5 @@ def dump_asciihex(payload, bytes_per_line=16):
 
     arraydump = list(zip(dump_hex(payload), dump_ascii(payload)))
     format_str = '%-' + str(bytes_per_line * 3) + 's  %s'
+
     return "\n".join([format_str % (line[0], line[1]) for line in arraydump])

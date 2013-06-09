@@ -59,9 +59,7 @@ class PyxieListener(PyxieBaseListener, QObject):
 
     def onTrafficReceive(self, data):
 
-        self.ui.lock.acquire()
-        self.latest_traffic = data
-        self.emit(SIGNAL("onTrafficReceive()"))
+        self.emit(SIGNAL("onTrafficReceive()"), data)
 
     def onTrafficModify(self, data):
 
@@ -234,9 +232,9 @@ class PyxieGui(QWidget):
         self.streammodel.appendRow(items)
         self.streamtable.resizeColumnsToContents()
 
-    def insert_traffic_into_history(self):
+    def insert_traffic_into_history(self, data):
 
-        data = self.listener.latest_traffic
+        self.lock.acquire()
         stream_id = int(data.stream_id)
         payload = data.payload
         self.stream_history[stream_id].append(payload)
