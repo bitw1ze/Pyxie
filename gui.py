@@ -7,6 +7,7 @@ import logging
 import string
 from datetime import datetime
 from time import time
+from threading import Lock
 
 from PyQt4.QtGui import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                          QPushButton, QTextEdit, QTableView, QAbstractItemView,
@@ -58,6 +59,7 @@ class PyxieListener(PyxieBaseListener, QObject):
 
     def onTrafficReceive(self, data):
 
+        self.ui.lock.acquire()
         self.latest_traffic = data
         self.emit(SIGNAL("onTrafficReceive()"))
 
@@ -114,10 +116,12 @@ class PyxieGui(QWidget):
         qr = self.frameGeometry()
         qr.moveCenter(QDesktopWidget().availableGeometry().center())
         self.move(qr.topLeft())
-        self.showMaximized()
+        #self.showMaximized()
         self.show()
 
     def init_signals(self):
+
+        self.lock = Lock()
 
         QObject.connect(self.listener, SIGNAL('onTrafficReceive()'), 
                 self.insert_traffic_into_history)
@@ -135,12 +139,10 @@ class PyxieGui(QWidget):
 
         open = QAction("Exit", self) 
         save = QAction("Save", self) 
-        build = QAction("Build", self) 
         exit = QAction("Quit", self) 
 
         file_menu.addAction(open)
         file_menu.addAction(save)
-        file_menu.addAction(build)
         file_menu.addAction(exit)
 
         stream_labels = ['client ip', 'client port', 
@@ -239,6 +241,7 @@ class PyxieGui(QWidget):
         stream_id = int(data.stream_id)
         payload = data.payload
         self.stream_history[stream_id].append(payload)
+        self.lock.release()
 
     def toggle_proxy(self, active):
 
