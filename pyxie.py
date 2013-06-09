@@ -10,6 +10,7 @@ from utils import getrealdest
 
 log = logging.getLogger("pyxie")
 
+
 class Proxy:
 
 
@@ -74,6 +75,11 @@ class Proxy:
                 except:
                     pass
 
+            except KeyboardInterrupt:
+                log.exception('Execution interrupted by user (ctrl+c)')
+                stop()
+                sys.exit(0)
+
             except Exception as e:
                 try:
                     server.close()
@@ -83,7 +89,3 @@ class Proxy:
 
                 raise
 
-            except KeyboardInterrupt:
-                log.exception('Execution interrupted by user (ctrl+c)')
-                stop()
-                sys.exit(0)
