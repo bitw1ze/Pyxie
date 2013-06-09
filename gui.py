@@ -111,10 +111,10 @@ class PyxieGui(QWidget):
 
         QObject.connect(self.listener, 
                         SIGNAL('onTrafficReceive'), 
-                        self.put_traffic_history)
+                        self.onTrafficReceive)
         QObject.connect(self.listener, 
                         SIGNAL('onConnectionEstablished'),
-                        self.put_stream)
+                        self.onConnectionEstablished)
 
     def init_widgets(self):
 
@@ -205,7 +205,7 @@ class PyxieGui(QWidget):
         dump = str(b''.join(conversation), 'utf8', 'ignore')
         self.stream_dump.setText(utils.printable_ascii(dump))
 
-    def put_stream(self, stream):
+    def onConnectionEstablished(self, stream):
 
         self.stream_history.append([])
 
@@ -219,13 +219,12 @@ class PyxieGui(QWidget):
 
         for val in vals:
             item = QStandardItem(str(val))
-            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             items.append(item)
 
         self.streammodel.appendRow(items)
         self.streamtable.resizeColumnsToContents()
 
-    def put_traffic_history(self, traffic):
+    def onTrafficReceive(self, traffic):
 
         self.stream_history[traffic.stream.stream_id].append(traffic)
         # TODO: call modifiers with entire record instead of just payload
