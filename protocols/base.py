@@ -7,12 +7,11 @@ from queue import PriorityQueue
 
 from records import TrafficRecord
 
+
 log = logging.getLogger("pyxie")
-traffic_queue = PriorityQueue()
 
 
-class ClosedConnectionError(Exception):
-    pass
+class ClosedConnectionError(Exception):    pass
 
 
 class BaseProto(metaclass=abc.ABCMeta):
