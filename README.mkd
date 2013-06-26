@@ -1,5 +1,11 @@
 # Pyxie - An Extensible Transparent Proxy
 
+## Disclaimer
+
+This code is currently unstable and not suitable for use. There are more
+refactors ahead. I had to take a break from this for a few weeks, but expect to
+updates soon. 
+
 ## Summary
 
 Pyxie is an extensible transparent proxy framework intended for use in security
