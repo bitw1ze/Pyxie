@@ -1,6 +1,6 @@
 import re
 
-from wrappers import SSLWrapper
+from wrappers.ssl import SSLWrapper
 from protocols.http import HTTPProto
 
 
