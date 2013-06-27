@@ -311,7 +311,7 @@ def main():
     global log
 
     timestamp = str(int(time()))
-    logfile = config['logfile'].replace("^:TS:^", timestamp)
+    logfile = config['logfile'].replace(":TS:", timestamp)
     log = init_logger(filename=logfile, level=logging.DEBUG)
 
     app = QApplication(sys.argv)
