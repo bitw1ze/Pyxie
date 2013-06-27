@@ -17,12 +17,12 @@ implement protocol-specific operations.
 
 ## Dependencies
 
-Python3
-PyQt (currently does not work to install with pip)
+*Python3
+*PyQt (currently does not work to install with pip)
 
 ### If proxying SSL traffic
-pyOpenSSL
-openssl binary (temporarily needed for creating certs)
+*pyOpenSSL
+*openssl binary (temporarily needed for creating certs)
 
 ## Details
 
