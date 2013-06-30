@@ -69,9 +69,13 @@ class StreamTableView(QTableView):
         QTableView.__init__(self)
 
         self.parent = parent
+        self.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.setSelectionMode(QAbstractItemView.SingleSelection)
+        self.setSortingEnabled(True)
 
     def selectionChanged(self, selected, deselected):
 
+        QTableView.selectionChanged(self, selected, deselected)
         try:
             stream_id = selected.indexes()[0].row()
             self.parent.show_traffic_history(stream_id)
@@ -143,7 +147,6 @@ class PyxieGui(QWidget):
         
         self.streamtable = StreamTableView(self)
         self.streamtable.setModel(self.streammodel)
-        self.streamtable.setSelectionBehavior(QAbstractItemView.SelectRows)
         
         # create textedit area where traffic goes
         self.stream_dump = QTextEdit(self)
@@ -219,6 +222,7 @@ class PyxieGui(QWidget):
 
         for val in vals:
             item = QStandardItem(str(val))
+            item.setFlags(Qt.ItemIsEnabled | Qt.ItemIsSelectable)
             items.append(item)
 
         self.streammodel.appendRow(items)
