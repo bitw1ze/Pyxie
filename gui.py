@@ -16,23 +16,12 @@ import modifier
 import utils
 from pyxie import Proxy
 from config import config
+from core import PyxieEventListener
 
 
 log = None
 
 
-class PyxieBaseListener:
-
-
-    def onTrafficReceive(self, data):
-
-        pass
-
-    def onConnectionEstablished(self, data):
-
-        pass
-
-    
 class StreamTableView(QTableView):
 
 
@@ -56,7 +45,7 @@ class StreamTableView(QTableView):
             return
 
 
-class PyxieGui(QWidget, PyxieBaseListener):
+class PyxieGui(QWidget, PyxieEventListener):
 
 
     def __init__(self, width=800, height=600):
