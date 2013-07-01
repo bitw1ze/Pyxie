@@ -2,6 +2,7 @@ import re
 
 from wrappers.ssl import SSLWrapper
 from protocols.http import HTTPProto
+from protocols.tcp import TCPProto
 
 
 class MyModifier:
@@ -17,7 +18,8 @@ class MyModifier:
 
 
 wrapper = SSLWrapper
-protocol = HTTPProto
+protocol = TCPProto
+#protocol = HTTPProto
 modifiers = [MyModifier()]
 
 config = {

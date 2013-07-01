@@ -1,13 +1,10 @@
 #!/usr/bin/env python3
 
 import sys
-import re
 import logging
-import string
 from datetime import datetime
 from time import time
 from threading import Lock
-from queue import PriorityQueue
 
 from PyQt4.QtGui import (QApplication, QWidget, QVBoxLayout, QHBoxLayout,
                          QPushButton, QTextEdit, QTableView, QAbstractItemView,
@@ -35,32 +32,7 @@ class PyxieBaseListener:
 
         pass
 
-    def onTrafficSend(self, data):
-
-        pass
-
-
-class PyxieListener(PyxieBaseListener, QObject):
-
-
-    def __init__(self, ui):
-
-        QObject.__init__(self)
-        self.ui = ui
-
-    def onConnectionEstablished(self, stream):
-
-        self.emit(SIGNAL("onConnectionEstablished"), stream)
-
-    def onTrafficReceive(self, traffic):
-
-        self.emit(SIGNAL("onTrafficReceive"), traffic)
-
-    def onTrafficSend(self, data):
-
-        pass
-
-
+    
 class StreamTableView(QTableView):
 
 
@@ -84,15 +56,14 @@ class StreamTableView(QTableView):
             return
 
 
-class PyxieGui(QWidget):
+class PyxieGui(QWidget, PyxieBaseListener):
 
 
     def __init__(self, width=800, height=600):
 
         QWidget.__init__(self)
 
-        self.listener = PyxieListener(self)
-        self.proxy = Proxy(config=config, listener=self.listener)
+        self.proxy = Proxy(config=config, listener=self)
         self.stream_history = []
         self.modifiers = config['modifiers']
 
@@ -100,6 +71,7 @@ class PyxieGui(QWidget):
         self.init_widgets()
         self.init_signals()
         self.init_data()
+
 
     def init_window(self, width, height):
 
@@ -113,12 +85,12 @@ class PyxieGui(QWidget):
 
     def init_signals(self):
 
-        QObject.connect(self.listener, 
-                        SIGNAL('onTrafficReceive'), 
-                        self.onTrafficReceive)
-        QObject.connect(self.listener, 
-                        SIGNAL('onConnectionEstablished'),
-                        self.onConnectionEstablished)
+        #recv_trigger = pyqtSignal('namedtuple')
+        #conn_trigger = pyqtSignal('namedtuple')
+        #self.recv_trigger.connect(self.onTrafficReceive)
+        #self.conn_trigger.connect(self.onConnectionEstablished)
+        QObject.connect(self, SIGNAL('new_conn'), self.handleConnection)
+        QObject.connect(self, SIGNAL('traffic_recv'), self.handleRecv)
 
     def init_widgets(self):
 
@@ -208,7 +180,7 @@ class PyxieGui(QWidget):
         dump = str(b''.join(conversation), 'utf8', 'ignore')
         self.stream_dump.setText(utils.printable_ascii(dump))
 
-    def onConnectionEstablished(self, stream):
+    def handleConnection(self, stream):
 
         self.stream_history.append([])
 
@@ -228,18 +200,19 @@ class PyxieGui(QWidget):
         self.streammodel.appendRow(items)
         self.streamtable.resizeColumnsToContents()
 
-    def onTrafficReceive(self, traffic):
+    def handleRecv(self, traffic):
 
         self.stream_history[traffic.stream.stream_id].append(traffic)
         # TODO: call modifiers with entire record instead of just payload
-        payload = self.call_modifiers(traffic.payload)
+        new_payload = self.call_modifiers(traffic.payload)
 
         if self.interception_on:
             self.intercept_lock.acquire()
             self.latest_traffic = traffic
-            self.intercept_dump.setText(str(payload, 'utf8', 'ignore'))
+            self.intercept_dump.setText(str(new_payload, 'utf8', 'ignore'))
         else:
-            traffic.stream.unpause(payload)
+            traffic.stream.send(new_payload, traffic.direction)
+            traffic.stream.unpause()
 
     def toggle_proxy(self, active):
 
@@ -276,8 +249,10 @@ class PyxieGui(QWidget):
             self.intercept_dump.setText("")
             self.intercept_lock.release()
             stream = self.latest_traffic.stream
+            direction = self.latest_traffic.direction
             self.latest_traffic = None
-            stream.unpause(payload)
+            stream.send(payload, direction)
+            stream.unpause()
 
     def drop_traffic(self):
 
@@ -289,6 +264,17 @@ class PyxieGui(QWidget):
         for m in self.modifiers:
             modified = m.modify(modified)
         return modified
+
+    def onConnectionEstablished(self, stream):
+
+        #self.conn_trigger.emit(stream)
+        self.emit(SIGNAL('new_conn'), stream)
+
+    def onTrafficReceive(self, traffic):
+
+        #self.recv_trigger.emit(traffic)
+        self.emit(SIGNAL('traffic_recv'), traffic)
+
     
 
 def init_logger(filename=None, level=logging.WARNING):

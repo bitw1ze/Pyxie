@@ -1,4 +1,10 @@
+import logging
+
 from protocols.base import BaseProto, ClosedConnectionError
+from core import DIRECTION_INBOUND, DIRECTION_OUTBOUND
+
+
+log = logging.getLogger("pyxie")
 
 
 class TCPProto(BaseProto):
@@ -10,24 +16,41 @@ class TCPProto(BaseProto):
 
         BaseProto.__init__(self, stream_id, client, server, config, listener)
 
-    def forward_outbound(self):
+    def recv(self, direction):
 
-        while True:
-            
-            try:
-                self.recv_outbound()
-                self.send_outbound()
+        try:
+            if direction == DIRECTION_OUTBOUND:
+                client, server = self.client, self.server
+            elif direction == DIRECTION_INBOUND:
+                client, server = self.server, self.client
+            else:
+                raise Exception("Invalid Direction")
 
-            except ClosedConnectionError as e:
-                return
+            payload = client.recv(4096)
+            if not payload:
+                raise Exception("No data received")
 
-    def forward_inbound(self):
+            return payload
 
-        while True:
+        except Exception as e:
+            self.stop()
+            raise ClosedConnectionError()
 
-            try:
-                self.recv_inbound()
-                self.send_inbound()
+    def send(self, payload, direction):
 
-            except ClosedConnectionError as e:
-                return
+        if not payload:
+            return
+
+        if direction == DIRECTION_OUTBOUND:
+            client, server = self.client, self.server
+        elif direction == DIRECTION_INBOUND:
+            client, server = self.server, self.client
+        else:
+            raise Exception("Invalid Direction")
+
+        try:
+            server.sendall(payload)
+
+        except Exception as e:
+            self.stop()
+            raise ClosedConnectionError()

@@ -10,13 +10,6 @@ class HTTPProto(TCPProto):
 
         TCPProto.__init__(self, stream_id, client, server, config, listener)
 
-    def forward_inbound(self):
-
-        TCPProto.forward_inbound(self)
-
-    def forward_outbound(self):
-
-        TCPProto.forward_outbound(self)
 
 class HTTPRequest:
 
@@ -28,6 +21,7 @@ class HTTPRequest:
             }
     headers = []
     body = []
+
 
 class HTTPResponse:
 
