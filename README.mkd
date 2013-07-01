@@ -2,9 +2,8 @@
 
 ## Disclaimer
 
-This code is currently unstable and not suitable for use. There are more
-refactors ahead. I had to take a break from this for a few weeks, but expect to
-updates soon. 
+This code is currently unstable and not suitable for use. There are some major
+changes ahead, so stay tuned.
 
 ## Summary
 
